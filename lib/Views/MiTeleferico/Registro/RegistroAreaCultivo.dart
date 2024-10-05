@@ -8,7 +8,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_gmaps/Controllers/MiTeleferico/AreaCultivoController.dart';
-import 'package:flutter_gmaps/models/MiTeleferico/AreaCultivo.dart';
+import 'package:flutter_gmaps/models/AreaCultivo/AreaCultivo.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart'; // Añadir esta importación para generar IDs únicos
@@ -412,7 +412,7 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Registrar Línea de Teleférico'),
+        title: Text('Registrar area de cultivo'),
         actions: [
           IconButton(
             icon: Icon(Icons.save),
@@ -433,10 +433,10 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
           children: [
             TextField(
               controller: _lineNameController,
-              decoration: InputDecoration(labelText: 'Nombre del Color de la Línea'),
+              decoration: InputDecoration(labelText: 'Nombre del Area de Cultivo'),
             ),
             SizedBox(height: 10),
-            Text('Seleccionar Color de la Línea', style: TextStyle(fontSize: 16)),
+            Text('Seleccionar color del Area', style: TextStyle(fontSize: 16)),
             SizedBox(height: 10),
             Wrap(
               spacing: 10.0,

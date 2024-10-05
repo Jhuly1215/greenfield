@@ -3,12 +3,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gmaps/.env.dart';
-import 'package:flutter_gmaps/models/MiLinea/lineas_model.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_gmaps/models/MiTeleferico/AreaCultivo.dart';
+import 'package:flutter_gmaps/models/AreaCultivo/AreaCultivo.dart';
 import 'package:flutter_gmaps/Controllers/MiTeleferico/AreaCultivoController.dart';
 import 'package:collection/collection.dart';
 import 'package:http/http.dart' as http;
@@ -67,10 +66,8 @@ class _RouteViewTelefericoState extends ConsumerState<RouteViewTeleferico> {
       longitud: tappedPoint.longitude,
       orden: nuevoOrden,
     );
-
     // Agregar el nuevo punto al área de cultivo
     _puntosarea[puntoId] = nuevoPunto;
-
     // Crear y agregar un marcador con ícono personalizado para el punto
     BitmapDescriptor customIcon = await _createCustomMarkerBitmap(Colors.blueAccent);
     Marker nuevoMarker = Marker(

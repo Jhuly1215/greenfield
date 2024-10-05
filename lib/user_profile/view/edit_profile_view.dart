@@ -24,8 +24,6 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
   late TextEditingController phoneNumberController;
   late TextEditingController birthDateController;
   File? profileFile;
-  bool pumaKatari = false;
-  bool teleferico = false;
 
   @override
   void initState() {

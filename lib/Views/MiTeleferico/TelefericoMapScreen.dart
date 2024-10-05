@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_gmaps/Controllers/MiTeleferico/AreaCultivoController.dart';
-import 'package:flutter_gmaps/models/MiTeleferico/AreaCultivo.dart';
+import 'package:flutter_gmaps/models/AreaCultivo/AreaCultivo.dart';
 
 class AreasHandler {
   static final AreaCultivoController _firebaseController = AreaCultivoController();

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gmaps/Controllers/MiTeleferico/AreaCultivoController.dart';
 import 'package:flutter_gmaps/Views/MiTeleferico/Registro/EditAreaCultivo.dart';
 import 'package:flutter_gmaps/Views/MiTeleferico/Registro/RegistroAreaCultivo.dart';
-import 'package:flutter_gmaps/models/MiTeleferico/AreaCultivo.dart';
+import 'package:flutter_gmaps/models/AreaCultivo/AreaCultivo.dart';
 
 class ListLineasTelefericoScreen extends StatefulWidget {
   @override

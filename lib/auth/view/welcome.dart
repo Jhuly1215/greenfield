@@ -82,7 +82,7 @@ class _WelcomePageState extends ConsumerState<WelcomePage> {
                     const Column(
                       children: <Widget>[
                         Text(
-                          "Bienvenido a AYI",
+                          "Bienvenido a GreenField",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 30,
@@ -100,7 +100,7 @@ class _WelcomePageState extends ConsumerState<WelcomePage> {
                     Column(
                       children: <Widget>[
                         Text(
-                          "Explora tus alrededores con AYI",
+                          "Sigue tus cultivos con GreenField",
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.grey[700],

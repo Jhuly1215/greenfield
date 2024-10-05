@@ -7,7 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_gmaps/Controllers/MiTeleferico/AreaCultivoController.dart';
-import 'package:flutter_gmaps/models/MiTeleferico/AreaCultivo.dart';
+import 'package:flutter_gmaps/models/AreaCultivo/AreaCultivo.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -25,7 +25,7 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
   final List<LatLng> _stations = [];
   final List<String> _stationNames = [];
   final List<String> _locationNames = [];
-  final List<Polyline> _newPolylines = [];
+  final List<Polygon> _newPolygons = [];
   GoogleMapController? _mapController;
   Color _selectedColor = Colors.black;
   bool _colorSelected = false;
@@ -47,7 +47,7 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
     _colorSelected = true;
     _stations.addAll(widget.linea.puntoarea.map((e) => LatLng(e.latitud, e.longitud)));
     _loadMarkers();
-    _updatePolylines();
+    _updatePolygon();
   }
 
   Future<void> _loadMarkers() async {
@@ -61,13 +61,7 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
         position: LatLng(punto.latitud, punto.longitud),
         icon: markerIcon,
         draggable: true,
-
-        // Al hacer tap en el marcador
-        onTap: () {
-          if (_editConnectionsMode) {
-            _setEndIndexForConnection(_stations.indexOf(LatLng(punto.latitud, punto.longitud)));
-          }
-        },
+        
 
         // Al finalizar el arrastre, actualizar la posición de la estación
         onDragEnd: (newPosition) {
@@ -133,37 +127,15 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
   }
 
   void _addStation(LatLng pos) async {
-    final stationNameController = TextEditingController();
-    final locationNameController = TextEditingController();
-    final locationNameGoogle = await _getGooglePlaceName(pos);
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-          title: Text('Agregar Estación'),
+          title: Text('Agregar punto de area'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: stationNameController,
-                decoration: InputDecoration(
-                  labelText: 'Nombre de la Estación',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0)),
-                ),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: locationNameController,
-                decoration: InputDecoration(
-                  labelText: 'Nombre de la Ubicación',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0)),
-                ),
-              ),
-              SizedBox(height: 10),
-              Text('Nombre de la Ubicación Google: $locationNameGoogle'),
-            ],
           ),
           actions: [
             TextButton(
@@ -174,37 +146,20 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final stationName = stationNameController.text;
-                final locationName = locationNameController.text;
-
-                if (stationName.isNotEmpty && locationName.isNotEmpty) {
                   final markerIcon = await _createCustomMarkerBitmap(_selectedColor);
-
                   setState(() {
-                    _stationNames.add(stationName);
-                    _locationNames.add(locationName);
-
                     final marker = Marker(
                       markerId: MarkerId(pos.toString()),
-                      position: pos,
-                      infoWindow: InfoWindow(title: stationName, snippet: locationName),
-                      icon: markerIcon,
-                      onTap: () {
-                        if (_editConnectionsMode) {
-                          _setEndIndexForConnection(_stations.indexOf(pos));
-                        } else {
-                          _editStation(pos, stationName, locationName);
-                        }
-                      },
+                      position: pos,       
+                      icon: markerIcon,   
                     );
                     _newMarkers.add(marker);
                     _stations.add(pos);
-
-                    _updatePolylines();
+                    _updatePolygon();
                   });
 
                   Navigator.of(context).pop();
-                }
+                
               },
               child: Text('Agregar'),
             ),
@@ -226,23 +181,6 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
           title: Text('Editar Estación'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: stationNameController,
-                decoration: InputDecoration(
-                  labelText: 'Nombre de la Estación',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0)),
-                ),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: locationNameController,
-                decoration: InputDecoration(
-                  labelText: 'Nombre de la Ubicación',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0)),
-                ),
-              ),
-            ],
           ),
           actions: [
             TextButton(
@@ -256,8 +194,6 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
                 setState(() {
                   final index = _stations.indexOf(pos);
                   if (index != -1) {
-                    _stationNames[index] = stationNameController.text;
-                    _locationNames[index] = locationNameController.text;
 
                     final updatedMarker = Marker(
                       markerId: MarkerId(pos.toString()),
@@ -268,16 +204,14 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
                       ),
                       icon: _newMarkers[index].icon,
                       onTap: () {
-                        if (_editConnectionsMode) {
-                          _setEndIndexForConnection(index);
-                        } else {
+                        
                           _editStation(pos, stationNameController.text, locationNameController.text);
-                        }
+                        
                       },
                     );
 
                     _newMarkers[index] = updatedMarker;
-                    _updatePolylines();
+                    _updatePolygon();
                   }
                 });
                 Navigator.of(context).pop();
@@ -293,7 +227,7 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
                     _stationNames.removeAt(index);
                     _locationNames.removeAt(index);
                     _newMarkers.removeAt(index);
-                    _updatePolylines();
+                    _updatePolygon();
                   }
                 });
                 Navigator.of(context).pop();
@@ -369,7 +303,7 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
 
     setState(() {
       _newMarkers.clear();
-      _newPolylines.clear();
+      _newPolygons.clear();
       _stations.clear();
       _stationNames.clear();
       _locationNames.clear();
@@ -433,55 +367,28 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
     );
   }
 
-  void _updatePolylines() {
-    _newPolylines.clear();
-    if (_stations.length > 1) {
-      for (int i = 0; i < _stations.length - 1; i++) {
-        _newPolylines.add(Polyline(
-          polylineId: PolylineId('border_polyline_$i'),
-          color: Colors.black,
-          width: 9,
-          points: [
-            LatLng(_stations[i].latitude, _stations[i].longitude),
-            LatLng(_stations[i + 1].latitude, _stations[i + 1].longitude),
-          ],
-        ));
+  void _updatePolygon() {
+    _newPolygons.clear(); // Limpiar los polígonos anteriores
 
-        _newPolylines.add(Polyline(
-          polylineId: PolylineId('polyline_$i'),
-          color: _selectedColor,
-          width: 5,
-          points: [
-            LatLng(_stations[i].latitude, _stations[i].longitude),
-            LatLng(_stations[i + 1].latitude, _stations[i + 1].longitude),
-          ],
-        ));
-      }
+    if (_stations.isNotEmpty) {
+      final polygon = Polygon(
+        polygonId: PolygonId('new_polygon'),
+        points: _stations, // Usar los puntos actualizados de las estaciones
+        strokeColor: Colors.black,
+        strokeWidth: 3,
+        fillColor: _selectedColor.withOpacity(0.3), // Color con opacidad
+      );
+      _newPolygons.add(polygon); // Añadir el nuevo polígono a la lista
     }
-  }
 
+    setState(() {}); // Actualizar el estado para reflejar los cambios
+  }
   void _setStartIndexForConnection(int index) {
     setState(() {
       _startIndex = index;
     });
   }
 
-  void _setEndIndexForConnection(int endIndex) {
-    if (_startIndex != -1 && endIndex != _startIndex) {
-      setState(() {
-        final startStation = _stations[_startIndex];
-        final endStation = _stations[endIndex];
-
-        _newPolylines.add(Polyline(
-          polylineId: PolylineId('custom_polyline_${_startIndex}_$endIndex'),
-          color: _selectedColor,
-          width: 5,
-          points: [startStation, endStation],
-        ));
-        _startIndex = -1; // Reset start index after setting the connection
-      });
-    }
-  }
 
   void _toggleEditConnectionsMode() {
     setState(() {
@@ -558,7 +465,7 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
           initialCameraPosition: _initialCameraPosition,
           onMapCreated: _onMapCreated,
           markers: Set.from(_newMarkers),
-          polylines: Set.from(_newPolylines),
+          polygons: Set.from(_newPolygons),
           onTap: _addStation,
         ),
         if (_editConnectionsMode)

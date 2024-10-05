@@ -30,7 +30,7 @@ class UserProfile extends ConsumerWidget {
           body: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.teal, Colors.tealAccent],
+                colors: [Color(0x038C3E), Colors.white],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -51,7 +51,7 @@ class UserProfile extends ConsumerWidget {
                           user.name,
                           style: const TextStyle(
                             fontSize: 20,
-                            color: Colors.white,
+                            color: Colors.black,
                           ),
                         ),
                       ],
