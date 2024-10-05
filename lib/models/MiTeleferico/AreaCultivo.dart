@@ -2,6 +2,7 @@ class AreaCultivo {
   String id;
   String nombre;
   String color;
+
   List<PuntoArea> puntoarea;
 
   AreaCultivo({
@@ -15,6 +16,7 @@ class AreaCultivo {
     return {
       'nombre': nombre,
       'color': color,
+    
       'puntoarea': puntoarea.map((e) => e.toMap()).toList(),
     };
   }

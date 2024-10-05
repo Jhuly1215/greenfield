@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_gmaps/models/MiTeleferico/AreaCultivo.dart';
 
-class LineaTelefericoController {
+class AreaCultivoController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Guardar una nueva línea en Firestore
@@ -52,6 +52,7 @@ class LineaTelefericoController {
           id: doc.id, // Usar el ID del documento de Firestore
           nombre: data['nombre'],
           color: data['color'],
+
           puntoarea: puntosarea,
         );
       }).toList();

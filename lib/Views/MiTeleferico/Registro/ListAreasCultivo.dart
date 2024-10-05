@@ -11,7 +11,7 @@ class ListLineasTelefericoScreen extends StatefulWidget {
 
 class _ListLineasTelefericoScreenState extends State<ListLineasTelefericoScreen> {
   final AreaCultivoController _firebaseController = AreaCultivoController();
-  List<AreaCultivo> _lineasTeleferico = [];
+  List<AreaCultivo> _areasCultivo = [];
 
   @override
   void initState() {
@@ -22,7 +22,7 @@ class _ListLineasTelefericoScreenState extends State<ListLineasTelefericoScreen>
   Future<void> _loadLineasTeleferico() async {
     _firebaseController.getLineasTelefericos().listen((lineas) {
       setState(() {
-        _lineasTeleferico = lineas;
+        _areasCultivo = lineas;
       });
     });
   }
@@ -57,9 +57,9 @@ class _ListLineasTelefericoScreenState extends State<ListLineasTelefericoScreen>
         ],
       ),
       body: ListView.builder(
-        itemCount: _lineasTeleferico.length,
+        itemCount: _areasCultivo.length,
         itemBuilder: (context, index) {
-          final linea = _lineasTeleferico[index];
+          final linea = _areasCultivo[index];
           return ListTile(
             title: Text(linea.nombre),
             trailing: Row(

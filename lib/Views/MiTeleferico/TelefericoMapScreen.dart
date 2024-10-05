@@ -4,75 +4,62 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter_gmaps/Controllers/MiTeleferico/LineasTelefericoController.dart';
+import 'package:flutter_gmaps/Controllers/MiTeleferico/AreaCultivoController.dart';
 import 'package:flutter_gmaps/models/MiTeleferico/AreaCultivo.dart';
 
-class TelefericosHandler {
-  static final LineaTelefericoController _firebaseController = LineaTelefericoController();
+class AreasHandler {
+  static final AreaCultivoController _firebaseController = AreaCultivoController();
 
   // Método para cargar las líneas y generar markers y polylines
   static Future<void> loadLineasTeleferico({
-    required Function(List<Marker>) onMarkersLoaded,
-    required Function(List<Polyline>) onPolylinesLoaded,
-  }) async {
-    _firebaseController.getLineasTelefericos().listen((lineas) async {
-      List<Marker> markers = [];
-      List<Polyline> polylines = [];
+  required Function(List<Marker>) onMarkersLoaded,
+  required Function(List<Polygon>) onPolygonsLoaded,  // Cambié de polylines a polygons
+}) async {
+  _firebaseController.getLineasTelefericos().listen((lineas) async {
+    List<Marker> markers = [];
+    List<Polygon> polygons = [];  // Ahora generamos polígonos
 
-      for (var linea in lineas) {
-        // Crear el markerIcon para toda la línea solo una vez
-        final markerIcon = await _createCustomMarkerBitmap(Color(int.parse('0xff${linea.color.substring(1)}')));
+    for (var linea in lineas) {
+      // Crear el markerIcon para toda la línea solo una vez
+      final markerIcon = await _createCustomMarkerBitmap(Color(int.parse('0xff${linea.color.substring(1)}')));
 
-        // Crear markers para cada punto de área
-        for (var puntoArea in linea.puntoarea) {
-          final marker = Marker(
-            markerId: MarkerId('${puntoArea.latitud}_${puntoArea.longitud}'), // Usar latitud y longitud como ID único
-            position: LatLng(puntoArea.latitud, puntoArea.longitud),
-            icon: markerIcon,
-          );
-          markers.add(marker);
-        }
+      List<LatLng> puntos = [];  // Lista para almacenar los puntos del área
 
-        // Crear polylines entre los puntos de área
-        if (linea.puntoarea.length > 1) {
-          for (int i = 0; i < linea.puntoarea.length - 1; i++) {
-            final color = Color(int.parse('0xff${linea.color.substring(1)}'));
+      // Crear markers para cada punto de área y agregarlos a la lista de puntos
+      for (var puntoArea in linea.puntoarea) {
+        final marker = Marker(
+          markerId: MarkerId('${puntoArea.latitud}_${puntoArea.longitud}'),
+          position: LatLng(puntoArea.latitud, puntoArea.longitud),
+          icon: markerIcon,
+        );
+        markers.add(marker);
 
-            // Polyline para el borde
-            polylines.add(Polyline(
-              polylineId: PolylineId('border_polyline_${linea.nombre}_$i'),
-              color: Colors.black,
-              width: 9,
-              points: [
-                LatLng(linea.puntoarea[i].latitud, linea.puntoarea[i].longitud),
-                LatLng(linea.puntoarea[i + 1].latitud, linea.puntoarea[i + 1].longitud),
-              ],
-            ));
-
-            // Polyline para el color de la línea
-            polylines.add(Polyline(
-              polylineId: PolylineId('polyline_${linea.nombre}_$i'),
-              color: color,
-              width: 5,
-              points: [
-                LatLng(linea.puntoarea[i].latitud, linea.puntoarea[i].longitud),
-                LatLng(linea.puntoarea[i + 1].latitud, linea.puntoarea[i + 1].longitud),
-              ],
-            ));
-          }
-        }
+        // Añadir el punto a la lista de puntos del polígono
+        puntos.add(LatLng(puntoArea.latitud, puntoArea.longitud));
       }
 
-      // Pasar markers y polylines de vuelta a los callbacks
-      onMarkersLoaded(markers);
-      onPolylinesLoaded(polylines);
-    });
-  }
+      // Crear un polígono si hay más de 2 puntos (mínimo 3 para formar un polígono)
+      if (puntos.length >= 3) {
+        polygons.add(Polygon(
+          polygonId: PolygonId('polygon_${linea.nombre}'),
+          points: puntos,
+          strokeWidth: 3,
+          strokeColor: Colors.black,  // Borde del polígono
+          fillColor: Color(int.parse('0x88${linea.color.substring(1)}')),  // Color de relleno semitransparente
+        ));
+      }
+    }
+
+    // Pasar markers y polígonos de vuelta a los callbacks
+    onMarkersLoaded(markers);
+    onPolygonsLoaded(polygons);  // Devuelvo los polígonos generados
+  });
+}
 
   // Método para crear el icono del marker a partir de un SVG y color
   static Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
     // Cargar el SVG de los assets
-    final svgString = await rootBundle.loadString('assets/svgs/TelefericoIcon.svg');
+    final svgString = await rootBundle.loadString('assets/svgs/areaicon.svg');
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
     const double size = 130.0;

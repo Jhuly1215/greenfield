@@ -13,7 +13,7 @@ class Pallete {
 
 final lightTheme = ThemeData(
   primarySwatch: Colors.blue,
-  primaryColor: Colors.lightBlue[200],
+  primaryColor: Pallete.principal,
   brightness: Brightness.light,
   appBarTheme: AppBarTheme(
     color: Colors.lightBlue[100],

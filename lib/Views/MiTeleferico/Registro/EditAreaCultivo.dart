@@ -6,7 +6,7 @@ import 'package:flutter_gmaps/.env.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:flutter_gmaps/Controllers/MiTeleferico/LineasTelefericoController.dart';
+import 'package:flutter_gmaps/Controllers/MiTeleferico/AreaCultivoController.dart';
 import 'package:flutter_gmaps/models/MiTeleferico/AreaCultivo.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -30,7 +30,7 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
   Color _selectedColor = Colors.black;
   bool _colorSelected = false;
   TextEditingController _lineNameController = TextEditingController();
-  final LineaTelefericoController _firebaseController = LineaTelefericoController();
+  final AreaCultivoController _firebaseController = AreaCultivoController();
   int _startIndex = -1; // Indice de la estación de inicio para editar conexiones
   bool _editConnectionsMode = false; // Modo para editar conexiones
 
@@ -81,7 +81,6 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
     setState(() {});
   }
 
-
   void _updateStationPosition(PuntoArea punto, LatLng newPosition) {
   // Actualizar la latitud y longitud del punto
     setState(() {
@@ -116,9 +115,6 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
       ..addAll(updatedMarkers); // Agregar los nuevos markers actualizados
   });
 }
-
-
-
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;

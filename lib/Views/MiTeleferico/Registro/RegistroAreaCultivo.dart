@@ -7,7 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:flutter_gmaps/Controllers/MiTeleferico/LineasTelefericoController.dart';
+import 'package:flutter_gmaps/Controllers/MiTeleferico/AreaCultivoController.dart';
 import 'package:flutter_gmaps/models/MiTeleferico/AreaCultivo.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -23,13 +23,13 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
   final List<LatLng> _stations = [];
   final List<String> _stationNames = [];
   final List<String> _locationNames = [];
-  final List<Polyline> _newPolylines = [];
+ final List<Polygon> _newPolygons = [];
   GoogleMapController? _mapController;
   String _selectedColorName = '';
   Color _selectedColor = Colors.black;
   bool _colorSelected = false;
   TextEditingController _lineNameController = TextEditingController();
-  final LineaTelefericoController _firebaseController = LineaTelefericoController();
+  final AreaCultivoController _firebaseController = AreaCultivoController();
   List<AreaCultivo> _areasCultivo = [];
 
   static const CameraPosition _initialCameraPosition = CameraPosition(
@@ -47,62 +47,46 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
     _firebaseController.getLineasTelefericos().listen((lineas) {
       setState(() {
         _areasCultivo = lineas;
-        _loadMarkersAndPolylines();
+        _loadMarkersAndPolygons();
       });
     });
   }
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
-    _loadMarkersAndPolylines();
+    _loadMarkersAndPolygons();
   }
 
-  Future<void> _loadMarkersAndPolylines() async {
-    _newMarkers.clear();
-    _newPolylines.clear();
+  Future<void> _loadMarkersAndPolygons() async {
+  _newMarkers.clear();
+  _newPolygons.clear();
 
-    for (var linea in _areasCultivo) {
-      for (var puntoarea in linea.puntoarea) {
-        final markerIcon = await _createCustomMarkerBitmap(Color(int.parse('0xff${linea.color.substring(1)}')));
+  for (var linea in _areasCultivo) {
+    // Crear los markers
+    for (var puntoarea in linea.puntoarea) {
+      final markerIcon = await _createCustomMarkerBitmap(Color(int.parse('0xff${linea.color.substring(1)}')));
 
-        final marker = Marker(
-          markerId: MarkerId('${puntoarea.latitud},${puntoarea.longitud}'),
-          position: LatLng(puntoarea.latitud, puntoarea.longitud),
-          
-          icon: markerIcon,
-        );
-        _newMarkers.add(marker);
-      }
-
-      if (linea.puntoarea.length > 1) {
-        for (int i = 0; i < linea.puntoarea.length - 1; i++) {
-          final color = Color(int.parse('0xff${linea.color.substring(1)}'));
-
-          _newPolylines.add(Polyline(
-            polylineId: PolylineId('border_polyline_${linea.nombre}_$i'),
-            color: Colors.black,
-            width: 9,
-            points: [
-              LatLng(linea.puntoarea[i].latitud, linea.puntoarea[i].longitud),
-              LatLng(linea.puntoarea[i + 1].latitud, linea.puntoarea[i + 1].longitud),
-            ],
-          ));
-
-          _newPolylines.add(Polyline(
-            polylineId: PolylineId('polyline_${linea.nombre}_$i'),
-            color: color,
-            width: 5,
-            points: [
-              LatLng(linea.puntoarea[i].latitud, linea.puntoarea[i].longitud),
-              LatLng(linea.puntoarea[i + 1].latitud, linea.puntoarea[i + 1].longitud),
-            ],
-          ));
-        }
-      }
+      final marker = Marker(
+        markerId: MarkerId('${puntoarea.latitud},${puntoarea.longitud}'),
+        position: LatLng(puntoarea.latitud, puntoarea.longitud),
+        icon: markerIcon,
+      );
+      _newMarkers.add(marker);
     }
 
-    setState(() {});
+    // Crear el polígono
+    final polygon = Polygon(
+      polygonId: PolygonId('polygon_${linea.nombre}'),
+      points: linea.puntoarea.map((punto) => LatLng(punto.latitud, punto.longitud)).toList(),
+      strokeColor: Colors.black,
+      strokeWidth: 3,
+      fillColor: Color(int.parse('0xff${linea.color.substring(1)}')).withOpacity(0.3),
+    );
+    _newPolygons.add(polygon);
   }
+
+  setState(() {});
+}
 
   Future<String> _getGooglePlaceName(LatLng pos) async {
     final url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=${pos.latitude},${pos.longitude}&key=$googleAPIKey';
@@ -117,70 +101,27 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
   }
 
   void _addStation(LatLng pos) async {
-    final stationNameController = TextEditingController();
-    final locationNameController = TextEditingController();
-    final locationNameGoogle = await _getGooglePlaceName(pos);
+    final markerIcon = await _createCustomMarkerBitmap(_selectedColor);
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-          title: Text('Agregar Punto de Area'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Nombre de la Ubicación Google: $locationNameGoogle'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final stationName = stationNameController.text;
-                final locationName = locationNameController.text;
+    setState(() {
+      // Añadir el nuevo marker a la lista de markers
+      final marker = Marker(
+        markerId: MarkerId(pos.toString()),
+        position: pos,
+        icon: markerIcon,
+      );
+      _newMarkers.add(marker);
+      
+      // Añadir la nueva posición a la lista de estaciones
+      _stations.add(pos);
 
-                if (stationName.isNotEmpty && locationName.isNotEmpty) {
-                  final markerIcon = await _createCustomMarkerBitmap(_selectedColor);
-
-                  setState(() {
-                    _stationNames.add(stationName);
-                    _locationNames.add(locationName);
-
-                    final marker = Marker(
-                      markerId: MarkerId(pos.toString()),
-                      position: pos,
-                      infoWindow: InfoWindow(title: stationName, snippet: locationName),
-                      icon: markerIcon,
-                      onTap: () {
-                        _editStation(pos, stationName, locationName);
-                      },
-                    );
-                    _newMarkers.add(marker);
-                    _stations.add(pos);
-
-                    _updatePolylines();
-                  });
-
-                  Navigator.of(context).pop();
-                }
-              },
-              child: Text('Agregar'),
-            ),
-          ],
-        );
-      },
-    );
+      // Llamar a la función que actualiza el polígono con los nuevos puntos
+      _updatePolygon();
+    });
   }
+  
 
   void _editStation(LatLng pos, String currentName, String currentLocation) {
-    final stationNameController = TextEditingController(text: currentName);
-    final locationNameController = TextEditingController(text: currentLocation);
 
     showDialog(
       context: context,
@@ -190,23 +131,7 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
           title: Text('Editar Estación'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: stationNameController,
-                decoration: InputDecoration(
-                  labelText: 'Nombre de la Estación',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0)),
-                ),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: locationNameController,
-                decoration: InputDecoration(
-                  labelText: 'Nombre de la Ubicación',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0)),
-                ),
-              ),
-            ],
+            
           ),
           actions: [
             TextButton(
@@ -220,24 +145,18 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
                 setState(() {
                   final index = _stations.indexOf(pos);
                   if (index != -1) {
-                    _stationNames[index] = stationNameController.text;
-                    _locationNames[index] = locationNameController.text;
+                   
 
                     final updatedMarker = Marker(
                       markerId: MarkerId(pos.toString()),
                       position: pos,
-                      infoWindow: InfoWindow(
-                        title: stationNameController.text,
-                        snippet: locationNameController.text,
-                      ),
+                      
                       icon: _newMarkers[index].icon,
-                      onTap: () {
-                        _editStation(pos, stationNameController.text, locationNameController.text);
-                      },
+                      
                     );
 
                     _newMarkers[index] = updatedMarker;
-                    _updatePolylines();
+                    _updatePolygon();
                   }
                 });
                 Navigator.of(context).pop();
@@ -250,10 +169,9 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
                   final index = _stations.indexOf(pos);
                   if (index != -1) {
                     _stations.removeAt(index);
-                    _stationNames.removeAt(index);
-                    _locationNames.removeAt(index);
+                
                     _newMarkers.removeAt(index);
-                    _updatePolylines();
+                    _updatePolygon();
                   }
                 });
                 Navigator.of(context).pop();
@@ -331,7 +249,7 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
 
     setState(() {
       _newMarkers.clear();
-      _newPolylines.clear();
+      _newPolygons.clear();
       _stations.clear();
       _stationNames.clear();
       _locationNames.clear();
@@ -471,33 +389,24 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
       },
     );
   }
+  void _updatePolygon() {
+    _newPolygons.clear(); // Limpiar los polígonos anteriores
 
-  void _updatePolylines() {
-    _newPolylines.clear();
-    if (_stations.length > 1) {
-      for (int i = 0; i < _stations.length - 1; i++) {
-        _newPolylines.add(Polyline(
-          polylineId: PolylineId('border_polyline_$i'),
-          color: Colors.black,
-          width: 9,
-          points: [
-            LatLng(_stations[i].latitude, _stations[i].longitude),
-            LatLng(_stations[i + 1].latitude, _stations[i + 1].longitude),
-          ],
-        ));
-
-        _newPolylines.add(Polyline(
-          polylineId: PolylineId('polyline_$i'),
-          color: _selectedColor,
-          width: 5,
-          points: [
-            LatLng(_stations[i].latitude, _stations[i].longitude),
-            LatLng(_stations[i + 1].latitude, _stations[i + 1].longitude),
-          ],
-        ));
-      }
+    if (_stations.isNotEmpty) {
+      final polygon = Polygon(
+        polygonId: PolygonId('new_polygon'),
+        points: _stations, // Usar los puntos actualizados de las estaciones
+        strokeColor: Colors.black,
+        strokeWidth: 3,
+        fillColor: _selectedColor.withOpacity(0.3), // Color con opacidad
+      );
+      _newPolygons.add(polygon); // Añadir el nuevo polígono a la lista
     }
+
+    setState(() {}); // Actualizar el estado para reflejar los cambios
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -578,7 +487,7 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
       initialCameraPosition: _initialCameraPosition,
       onMapCreated: _onMapCreated,
       markers: Set.from(_newMarkers),
-      polylines: Set.from(_newPolylines),
+      polygons: Set.from(_newPolygons),
       onTap: _addStation,
     );
   }
