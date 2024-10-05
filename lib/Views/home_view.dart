@@ -44,8 +44,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
   StreamSubscription<Position>? _positionStream;
   bool _isDarkMode = false;
   int _selectedIndex = 0;
-  TextEditingController _originController = TextEditingController();
-  TextEditingController _destinationController = TextEditingController();
   List<AutocompletePrediction> _originPredictions = [];
   List<AutocompletePrediction> _destinationPredictions = [];
   final GooglePlace googlePlace = GooglePlace(googleAPIKey);
@@ -65,8 +63,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
   void dispose() {
     _googleMapController.dispose();
     _positionStream?.cancel();
-    _originController.dispose();
-    _destinationController.dispose();
     super.dispose();
   }
 
@@ -108,7 +104,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
     final address = await _getAddressFromLatLng(_currentPosition);
     setState(() {
       _originAddress = address;
-      _originController.text = _originAddress;
     });
 
     _googleMapController.animateCamera(
@@ -175,7 +170,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
       _isLoading = false; // Ocultar loader
       _destinationPosition = destinationPosition;
       _destinationAddress = address;
-      _destinationController.text = _destinationAddress;
     });
 
     showModalBottomSheet(
@@ -200,19 +194,15 @@ class _HomeViewState extends ConsumerState<HomeView> {
                         items: const <BottomNavigationBarItem>[
                           BottomNavigationBarItem(
                             icon: Icon(Icons.directions_bus),
-                            label: 'MinuBus',
+                            label: 'Tierras',
                           ),
                           BottomNavigationBarItem(
                             icon: Icon(Icons.directions_transit),
-                            label: 'PumaKatari',
+                            label: 'Cultivos',
                           ),
                           BottomNavigationBarItem(
                             icon: Icon(Icons.cable),
-                            label: 'Teleferico',
-                          ),
-                          BottomNavigationBarItem(
-                            icon: Icon(Icons.local_taxi),
-                            label: 'Taxis',
+                            label: 'Informacion',
                           ),
                         ],
                         currentIndex: _selectedIndex,
@@ -246,10 +236,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                 child: Column(
                                   children: [
                                     TextField(
-                                      controller: _originController,
+                             
                                       decoration: InputDecoration(
-                                        labelText: 'Origen',
-                                        hintText: 'Selecciona el origen',
+                                        labelText: 'Cultivos',
+                            
                                         prefixIcon: Icon(Icons.location_on),
                                       ),
                                       onChanged: (value) async {
@@ -307,8 +297,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                                         _originAddress = details
                                                             .result!
                                                             .formattedAddress!;
-                                                        _originController.text =
-                                                            _originAddress;
+                                                  
                                                         _originPredictions = [];
                                                       });
                                                     }
@@ -331,7 +320,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                     setState(() {
                                       _originPosition = result;
                                       _originAddress = address;
-                                      _originController.text = _originAddress;
+          
                                     });
                                   }
                                 },
@@ -345,7 +334,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                 child: Column(
                                   children: [
                                     TextField(
-                                      controller: _destinationController,
+                                     
                                       decoration: InputDecoration(
                                         labelText: 'Destino',
                                         hintText: 'Selecciona el destino',
@@ -407,8 +396,8 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                                         _destinationAddress =
                                                             details.result!
                                                                 .formattedAddress!;
-                                                        _destinationController
-                                                                .text =
+                                                       
+                                                               
                                                             _destinationAddress;
                                                         _destinationPredictions =
                                                             [];
@@ -433,8 +422,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                     setState(() {
                                       _destinationPosition = result;
                                       _destinationAddress = address;
-                                      _destinationController.text =
-                                          _destinationAddress;
+                                    
                                     });
                                   }
                                 },

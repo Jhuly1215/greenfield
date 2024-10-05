@@ -6,7 +6,6 @@ import 'package:flutter_gmaps/common/loading_page.dart';
 import 'package:flutter_gmaps/models/user_model.dart';
 import 'package:flutter_gmaps/user_profile/controller/user_profile_controller.dart';
 import 'package:flutter_gmaps/user_profile/view/edit_profile_view.dart';
-import 'package:flutter_gmaps/utils/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class UserProfile extends ConsumerWidget {
@@ -30,7 +29,7 @@ class UserProfile extends ConsumerWidget {
           body: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0x038C3E), Colors.white],
+                colors: [Colors.white, Color(0xFF038C3E)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -59,9 +58,9 @@ class UserProfile extends ConsumerWidget {
                   ),
                   Expanded(
                     child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.teal[700],
-                        borderRadius: const BorderRadius.only(
+                      decoration: const BoxDecoration(
+                        color: Colors.white, // Fondo blanco
+                        borderRadius: BorderRadius.only(
                           topLeft: Radius.circular(20),
                           topRight: Radius.circular(20),
                         ),
@@ -70,12 +69,12 @@ class UserProfile extends ConsumerWidget {
                         padding: const EdgeInsets.all(16),
                         children: [
                           ListTile(
-                            leading: const Icon(Icons.person, color: Colors.white),
+                            leading: const Icon(Icons.person, color: Color(0xFF071D26)), // Color de íconos
                             title: const Text(
                               'Datos Personales',
-                              style: TextStyle(color: Colors.white),
+                              style: TextStyle(color: Color(0xFF071D26)), // Letras color 071D26
                             ),
-                            trailing: const Icon(Icons.edit, color: Colors.white),
+                            trailing: const Icon(Icons.edit, color: Color(0xFF071D26)),
                             onTap: () async {
                               await Navigator.push(
                                 context,
@@ -85,8 +84,11 @@ class UserProfile extends ConsumerWidget {
                             },
                           ),
                           ListTile(
-                            leading: const Icon(Icons.cable, color: Colors.white),
-                            title: const Text('Tierras', style: TextStyle(color: Colors.white)),
+                            leading: const Icon(Icons.cable, color: Color(0xFF071D26)),
+                            title: const Text(
+                              'Tierras',
+                              style: TextStyle(color: Color(0xFF071D26)), // Letras color 071D26
+                            ),
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -96,15 +98,29 @@ class UserProfile extends ConsumerWidget {
                           ),
                           const SizedBox(height: 20),
                           const Divider(color: Colors.tealAccent),
-                          ListTile(
-                            title: const Text(
-                              'Cerrar Sesión',
-                              style: TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
+                          // Botón de cerrar sesión
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF038C65), // Color de fondo del botón
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30), // Botón curveado
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              onPressed: () {
+                                ref.read(authControllerProvider.notifier).logout(context);
+                              },
+                              child: const Text(
+                                'Cerrar Sesión',
+                                style: TextStyle(
+                                  color: Colors.white, // Texto en blanco
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                            onTap: () {
-                              ref.read(authControllerProvider.notifier).logout(context);
-                            },
                           ),
                         ],
                       ),

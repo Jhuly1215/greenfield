@@ -2,28 +2,38 @@ import 'package:flutter/material.dart';
 
 
 class Pallete {
-  static const Color principal = Color(0x038C3E);
+  static const Color principal = Color(0xFF038C3E);
   static const Color secundario = Color(0xFFBDBDBD);
   static const Color whiteColor = Color(0xFFFFFFFF);
-  static const Color backgroundColor = Color(0x025940);
+  static const Color backgroundColor = Color(0xFF025940);
 
-  static const Color darkGreenColor = Color(0x014034);
-  static const Color darkGreen2Color = Color(0x071D26);
+  static const Color darkGreenColor = Color(0xFF014034);
+  static const Color darkGreen2Color = Color(0xFF071D26);
 }
 
 final lightTheme = ThemeData(
   primarySwatch: Colors.blue,
   primaryColor: Pallete.principal,
   brightness: Brightness.light,
+  
+  // AppBar Theme
   appBarTheme: AppBarTheme(
-    color: Colors.lightBlue[100],
-    iconTheme: IconThemeData(color: Colors.black),
+    color: Pallete.principal, // Color de fondo 038C3E
+    iconTheme: IconThemeData(color: Pallete.whiteColor), // Íconos en blanco
+    titleTextStyle: TextStyle(
+      color: Pallete.whiteColor, // Título en blanco
+      fontSize: 20,
+      fontWeight: FontWeight.bold,
+    ),
   ),
+  
+  // BottomNavigationBar Theme
   bottomNavigationBarTheme: BottomNavigationBarThemeData(
-    backgroundColor: Colors.lightBlue[200],
-    selectedItemColor: Colors.blue,
-    unselectedItemColor: Colors.black54,
+    backgroundColor: Pallete.principal, // Color de fondo 038C3E
+    selectedItemColor: Pallete.darkGreen2Color, // Color de ítem seleccionado 071D26
+    unselectedItemColor: Pallete.whiteColor, // Ítems no seleccionados en blanco
   ),
+
   inputDecorationTheme: InputDecorationTheme(
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(5),
@@ -49,15 +59,25 @@ final darkTheme = ThemeData(
   brightness: Brightness.dark,
   primarySwatch: Colors.blue,
   primaryColor: Colors.teal[700],
+
+  // AppBar Theme
   appBarTheme: AppBarTheme(
-    color: Colors.black,
-    iconTheme: IconThemeData(color: Colors.white),
+    color: Pallete.principal, // Color de fondo 038C3E
+    iconTheme: IconThemeData(color: Pallete.whiteColor), // Íconos en blanco
+    titleTextStyle: TextStyle(
+      color: Pallete.whiteColor, // Título en blanco
+      fontSize: 20,
+      fontWeight: FontWeight.bold,
+    ),
   ),
+  
+  // BottomNavigationBar Theme
   bottomNavigationBarTheme: BottomNavigationBarThemeData(
-    backgroundColor: Colors.black,
-    selectedItemColor: Colors.white,
-    unselectedItemColor: Colors.white60,
+    backgroundColor: Pallete.principal, // Color de fondo 038C3E
+    selectedItemColor: Pallete.darkGreen2Color, // Color de ítem seleccionado 071D26
+    unselectedItemColor: Pallete.whiteColor, // Ítems no seleccionados en blanco
   ),
+
   inputDecorationTheme: InputDecorationTheme(
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(5),
@@ -78,6 +98,7 @@ final darkTheme = ThemeData(
     ),
   ),
 );
+
 
 const darkMapStyle = '''[
   {
