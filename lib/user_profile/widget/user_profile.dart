@@ -6,6 +6,7 @@ import 'package:flutter_gmaps/common/loading_page.dart';
 import 'package:flutter_gmaps/models/user_model.dart';
 import 'package:flutter_gmaps/user_profile/controller/user_profile_controller.dart';
 import 'package:flutter_gmaps/user_profile/view/PrediccionesDF.dart';
+import 'package:flutter_gmaps/user_profile/view/dashboard.dart';
 import 'package:flutter_gmaps/user_profile/view/edit_profile_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -99,6 +100,22 @@ class UserProfile extends ConsumerWidget {
                           ),
                           const SizedBox(height: 20),
                           const Divider(color: Colors.tealAccent),
+                          
+                          // Button to access the Dashboard
+                          ListTile(
+                            leading: const Icon(Icons.dashboard, color: Color(0xFF071D26)),
+                            title: const Text(
+                              'Dashboard',
+                              style: TextStyle(color: Color(0xFF071D26)), // Letras color 071D26
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => Dashboard()), // Navigate to the Dashboard
+                              );
+                            },
+                          ),
+
                           // Botón para ver posibles incidencias
                           ListTile(
                             leading: const Icon(Icons.warning, color: Color(0xFF071D26)),
@@ -109,12 +126,13 @@ class UserProfile extends ConsumerWidget {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => PrediccionesDF()), // Navegar a PrediccionesDF
+                                MaterialPageRoute(builder: (context) => PredictionPage()), // Navegar a PrediccionesDF
                               );
                             },
                           ),
                           const SizedBox(height: 20),
                           const Divider(color: Colors.tealAccent),
+                          
                           // Botón de cerrar sesión
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
