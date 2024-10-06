@@ -23,16 +23,13 @@ class EditarLineaScreen extends StatefulWidget {
 class _EditarLineaScreenState extends State<EditarLineaScreen> {
   final List<Marker> _newMarkers = [];
   final List<LatLng> _stations = [];
-  final List<String> _stationNames = [];
-  final List<String> _locationNames = [];
   final List<Polygon> _newPolygons = [];
   GoogleMapController? _mapController;
   Color _selectedColor = Colors.black;
   bool _colorSelected = false;
   TextEditingController _lineNameController = TextEditingController();
+  TextEditingController _cultivoController = TextEditingController(); // Controlador para el cultivo
   final AreaCultivoController _firebaseController = AreaCultivoController();
-  int _startIndex = -1; // Indice de la estación de inicio para editar conexiones
-  bool _editConnectionsMode = false; // Modo para editar conexiones
 
   static const CameraPosition _initialCameraPosition = CameraPosition(
     target: LatLng(-16.488997, -68.1248959),
@@ -43,6 +40,7 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
   void initState() {
     super.initState();
     _lineNameController.text = widget.linea.nombre;
+    _cultivoController.text = widget.linea.cultivo; // Setear el cultivo actual
     _selectedColor = Color(int.parse('0xff${widget.linea.color.substring(1)}'));
     _colorSelected = true;
     _stations.addAll(widget.linea.puntoarea.map((e) => LatLng(e.latitud, e.longitud)));
@@ -54,18 +52,18 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
     final markerIcon = await _createCustomMarkerBitmap(_selectedColor);
 
     for (var punto in widget.linea.puntoarea) {
-      final markerId = MarkerId(punto.id);  // Usar 'id' como MarkerId
+      final markerId = MarkerId(punto.id);
 
       final marker = Marker(
-        markerId: markerId,  // Usar el 'id' como MarkerId
+        markerId: markerId,
         position: LatLng(punto.latitud, punto.longitud),
         icon: markerIcon,
         draggable: true,
-        
-
-        // Al finalizar el arrastre, actualizar la posición de la estación
         onDragEnd: (newPosition) {
           _updateStationPosition(punto, newPosition);
+        },
+        onTap: () {
+          _confirmDeleteMarker(punto);
         },
       );
 
@@ -76,112 +74,44 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
   }
 
   void _updateStationPosition(PuntoArea punto, LatLng newPosition) {
-  // Actualizar la latitud y longitud del punto
     setState(() {
-    punto.latitud = newPosition.latitude;
-    punto.longitud = newPosition.longitude;
+      punto.latitud = newPosition.latitude;
+      punto.longitud = newPosition.longitude;
 
-    // Crear una nueva lista de markers
-    final List<Marker> updatedMarkers = [];
-
-    // Iterar sobre los marcadores actuales y actualizar el que coincida con el 'id' del punto
-    for (var marker in _newMarkers) {
-      if (marker.markerId == MarkerId(punto.id)) {
-        // Crear un nuevo marker con la nueva posición
-        final updatedMarker = Marker(
-          markerId: marker.markerId,
-          position: newPosition, // Actualizar la posición
-          infoWindow: marker.infoWindow, // Mantener el resto de los parámetros
-          icon: marker.icon,
-          draggable: marker.draggable,
-          onTap: marker.onTap,
-          onDragEnd: marker.onDragEnd,
-        );
-        updatedMarkers.add(updatedMarker); // Añadir el marker actualizado a la nueva lista
-      } else {
-        updatedMarkers.add(marker); // Añadir los marcadores no modificados
+      final List<Marker> updatedMarkers = [];
+      for (var marker in _newMarkers) {
+        if (marker.markerId == MarkerId(punto.id)) {
+          final updatedMarker = Marker(
+            markerId: marker.markerId,
+            position: newPosition,
+            icon: marker.icon,
+            draggable: marker.draggable,
+            onTap: marker.onTap,
+            onDragEnd: marker.onDragEnd,
+          );
+          updatedMarkers.add(updatedMarker);
+        } else {
+          updatedMarkers.add(marker);
+        }
       }
-    }
 
-    // Reemplazar la lista original de _newMarkers con la nueva lista actualizada
-    _newMarkers
-      ..clear() // Limpiar la lista actual
-      ..addAll(updatedMarkers); // Agregar los nuevos markers actualizados
-  });
-}
+      _newMarkers
+        ..clear()
+        ..addAll(updatedMarkers);
+    });
+  }
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
   }
 
-  Future<String> _getGooglePlaceName(LatLng pos) async {
-    final url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=${pos.latitude},${pos.longitude}&key=$googleAPIKey';
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200) {
-      final jsonResponse = json.decode(response.body);
-      if (jsonResponse['results'] != null && jsonResponse['results'].length > 0) {
-        return jsonResponse['results'][0]['formatted_address'];
-      }
-    }
-    return '';
-  }
-
-  void _addStation(LatLng pos) async {
-
+  void _confirmDeleteMarker(PuntoArea punto) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-          title: Text('Agregar punto de area'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                  final markerIcon = await _createCustomMarkerBitmap(_selectedColor);
-                  setState(() {
-                    final marker = Marker(
-                      markerId: MarkerId(pos.toString()),
-                      position: pos,       
-                      icon: markerIcon,   
-                    );
-                    _newMarkers.add(marker);
-                    _stations.add(pos);
-                    _updatePolygon();
-                  });
-
-                  Navigator.of(context).pop();
-                
-              },
-              child: Text('Agregar'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _editStation(LatLng pos, String currentName, String currentLocation) {
-    final stationNameController = TextEditingController(text: currentName);
-    final locationNameController = TextEditingController(text: currentLocation);
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-          title: Text('Editar Estación'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-          ),
+          title: Text('Eliminar punto'),
+          content: Text('¿Estás seguro de que deseas eliminar este punto?'),
           actions: [
             TextButton(
               onPressed: () {
@@ -191,56 +121,27 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                setState(() {
-                  final index = _stations.indexOf(pos);
-                  if (index != -1) {
-
-                    final updatedMarker = Marker(
-                      markerId: MarkerId(pos.toString()),
-                      position: pos,
-                      infoWindow: InfoWindow(
-                        title: stationNameController.text,
-                        snippet: locationNameController.text,
-                      ),
-                      icon: _newMarkers[index].icon,
-                      onTap: () {
-                        
-                          _editStation(pos, stationNameController.text, locationNameController.text);
-                        
-                      },
-                    );
-
-                    _newMarkers[index] = updatedMarker;
-                    _updatePolygon();
-                  }
-                });
-                Navigator.of(context).pop();
-              },
-              child: Text('Guardar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  final index = _stations.indexOf(pos);
-                  if (index != -1) {
-                    _stations.removeAt(index);
-                    _stationNames.removeAt(index);
-                    _locationNames.removeAt(index);
-                    _newMarkers.removeAt(index);
-                    _updatePolygon();
-                  }
-                });
+                _deleteStation(punto);
                 Navigator.of(context).pop();
               },
               child: Text('Eliminar'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             ),
           ],
         );
       },
     );
+  }
+
+  void _deleteStation(PuntoArea punto) {
+    setState(() {
+      final index = _stations.indexWhere((pos) => pos.latitude == punto.latitud && pos.longitude == punto.longitud);
+      if (index != -1) {
+        _stations.removeAt(index);
+        _newMarkers.removeWhere((marker) => marker.markerId.value == punto.id);
+        _updatePolygon();
+      }
+    });
   }
 
   Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
@@ -274,127 +175,59 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
   }
 
   void _saveLinea() async {
-  if (_lineNameController.text.isNotEmpty && _stations.isNotEmpty) {
-    final puntosarea = _stations.asMap().entries.map((entry) {
-      final index = entry.key;
-      final LatLng pos = entry.value;
-
-      // Si ya existe un id para el punto, lo conservamos, sino generamos uno nuevo
-      final existingPunto = widget.linea.puntoarea.firstWhere((p) => p.latitud == pos.latitude && p.longitud == pos.longitude, orElse: () => PuntoArea(id: Uuid().v4(), longitud: pos.longitude, latitud: pos.latitude, orden: index));
-
-      return PuntoArea(
-        id: existingPunto.id, // Preservar el id existente o generar uno nuevo
-        longitud: pos.longitude,
-        latitud: pos.latitude,
-        orden: index,
-      );
-    }).toList();
-
-    // Crear la nueva área de cultivo con los puntos actualizados
-    final linea = AreaCultivo(
-      id: widget.linea.id,
-      nombre: _lineNameController.text,
-      color: '#${_selectedColor.value.toRadixString(16).substring(2)}',
-      puntoarea: puntosarea,
-    );
-
-    // Actualizar la línea en la base de datos
-    await _firebaseController.updateLineaTeleferico(linea.id, linea);
-
-    setState(() {
-      _newMarkers.clear();
-      _newPolygons.clear();
-      _stations.clear();
-      _stationNames.clear();
-      _locationNames.clear();
-      _lineNameController.clear();
-      _colorSelected = false;
-      _editConnectionsMode = false; // Desactivar el modo de edición de conexiones al guardar
-    });
-
-    Navigator.of(context).pop();
-  }
-}
-
-  void _selectColorAndName() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: _lineNameController,
-                    decoration: InputDecoration(labelText: 'Nombre del Area'),
-                  ),
-                  SizedBox(height: 10),
-                  Text('Seleccionar Color del Area', style: TextStyle(fontSize: 16)),
-                  SizedBox(height: 10),
-                  ColorPicker(
-                    pickerColor: _selectedColor,
-                    onColorChanged: (color) {
-                      setState(() {
-                        _selectedColor = color;
-                      });
-                    },
-                    showLabel: true,
-                    pickerAreaHeightPercent: 0.8,
-                  ),
-                  SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      if (_lineNameController.text.isNotEmpty) {
-                        setState(() {
-                          _colorSelected = true;
-                        });
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    child: Text('Siguiente'),
-                  ),
-                ],
-              ),
-            ),
-          ),
+    if (_lineNameController.text.isNotEmpty && _stations.isNotEmpty) {
+      final puntosarea = _stations.asMap().entries.map((entry) {
+        final index = entry.key;
+        final LatLng pos = entry.value;
+        final existingPunto = widget.linea.puntoarea.firstWhere(
+          (p) => p.latitud == pos.latitude && p.longitud == pos.longitude,
+          orElse: () => PuntoArea(id: Uuid().v4(), longitud: pos.longitude, latitud: pos.latitude, orden: index),
         );
-      },
-    );
+        return PuntoArea(
+          id: existingPunto.id,
+          longitud: pos.longitude,
+          latitud: pos.latitude,
+          orden: index,
+        );
+      }).toList();
+
+      final linea = AreaCultivo(
+        id: widget.linea.id,
+        nombre: _lineNameController.text,
+        color: '#${_selectedColor.value.toRadixString(16).substring(2)}',
+        cultivo: _cultivoController.text,  // Guardar el cultivo actualizado
+        puntoarea: puntosarea,
+      );
+
+      await _firebaseController.updateLineaTeleferico(linea.id, linea);
+
+      setState(() {
+        _newMarkers.clear();
+        _newPolygons.clear();
+        _stations.clear();
+        _lineNameController.clear();
+        _colorSelected = false;
+      });
+
+      Navigator.of(context).pop();
+    }
   }
 
   void _updatePolygon() {
-    _newPolygons.clear(); // Limpiar los polígonos anteriores
+    _newPolygons.clear();
 
     if (_stations.isNotEmpty) {
       final polygon = Polygon(
         polygonId: PolygonId('new_polygon'),
-        points: _stations, // Usar los puntos actualizados de las estaciones
+        points: _stations,
         strokeColor: Colors.black,
         strokeWidth: 3,
-        fillColor: _selectedColor.withOpacity(0.3), // Color con opacidad
+        fillColor: _selectedColor.withOpacity(0.3),
       );
-      _newPolygons.add(polygon); // Añadir el nuevo polígono a la lista
+      _newPolygons.add(polygon);
     }
 
-    setState(() {}); // Actualizar el estado para reflejar los cambios
-  }
-  void _setStartIndexForConnection(int index) {
-    setState(() {
-      _startIndex = index;
-    });
-  }
-
-
-  void _toggleEditConnectionsMode() {
-    setState(() {
-      _editConnectionsMode = !_editConnectionsMode;
-      _startIndex = -1; // Reset start index if mode is toggled
-    });
+    setState(() {});
   }
 
   @override
@@ -406,10 +239,6 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
           IconButton(
             icon: Icon(Icons.save),
             onPressed: _saveLinea,
-          ),
-          IconButton(
-            icon: Icon(_editConnectionsMode ? Icons.close : Icons.link),
-            onPressed: _toggleEditConnectionsMode,
           ),
         ],
       ),
@@ -427,6 +256,11 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
             TextField(
               controller: _lineNameController,
               decoration: InputDecoration(labelText: 'Nombre del Area'),
+            ),
+            SizedBox(height: 10),
+            TextField(
+              controller: _cultivoController,
+              decoration: InputDecoration(labelText: 'Cultivo'),
             ),
             SizedBox(height: 10),
             Text('Seleccionar Color del Area', style: TextStyle(fontSize: 16)),
@@ -466,18 +300,51 @@ class _EditarLineaScreenState extends State<EditarLineaScreen> {
           onMapCreated: _onMapCreated,
           markers: Set.from(_newMarkers),
           polygons: Set.from(_newPolygons),
-          onTap: _addStation,
+          onTap: (pos) {
+            _addStation(pos);
+          },
         ),
-        if (_editConnectionsMode)
-          Positioned(
-            bottom: 20,
-            left: 20,
-            child: ElevatedButton(
-              onPressed: _toggleEditConnectionsMode,
-              child: Text('Salir del Modo de Edición de Area'),
-            ),
-          ),
       ],
+    );
+  }
+
+  void _addStation(LatLng pos) {
+    // Agregar una estación nueva
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Agregar punto de área'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final markerIcon = await _createCustomMarkerBitmap(_selectedColor);
+                setState(() {
+                  final marker = Marker(
+                    markerId: MarkerId(Uuid().v4()), // Usar un nuevo ID
+                    position: pos,
+                    icon: markerIcon,
+                    draggable: true,
+                    onDragEnd: (newPosition) => _updateStationPosition(
+                      PuntoArea(id: Uuid().v4(), latitud: pos.latitude, longitud: pos.longitude, orden: _stations.length),
+                      newPosition,
+                    ),
+                  );
+                  _newMarkers.add(marker);
+                  _stations.add(pos);
+                  _updatePolygon();
+                });
+                Navigator.of(context).pop();
+              },
+              child: Text('Agregar'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
