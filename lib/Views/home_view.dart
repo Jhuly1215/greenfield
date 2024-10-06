@@ -468,54 +468,153 @@ class _HomeViewState extends ConsumerState<HomeView> {
         ));
       }
   }
+  void _focusOnArea(AreaCultivo area) {
+    if (_googleMapController == null || area.puntoarea.isEmpty) return;
 
-  //para mostrar las areas de cultivo
-  
-  // Fetch registered areas and update markers and polygons
-  Future<void> _loadLineasTeleferico() async {
-    _firebaseController.getLineasTelefericos().listen((lineas) {
-      setState(() {
-        _areaMarkers.clear();
-        _areaPolygons.clear();
-        _loadMarkersAndPolygons(lineas);
-      });
-    });
+    // Obtener los límites del área seleccionada
+    LatLngBounds bounds = _getBoundsForArea(area.puntoarea);
+
+    // Mover la cámara a la posición del área seleccionada
+    _googleMapController.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, 50),  // Ajustar el mapa a los límites del área
+    );
   }
 
-  // Create markers and polygons from registered areas
-  Future<void> _loadMarkersAndPolygons(List<AreaCultivo> areas) async {
-    for (var area in areas) {
-      // Add markers for each point in the area
-      for (var point in area.puntoarea) {
-        final markerIcon = await _createCustomMarkerBitmap(Color(int.parse('0xff${area.color.substring(1)}')));
-        final marker = Marker(
-          markerId: MarkerId('${point.latitud},${point.longitud}'),
-          position: LatLng(point.latitud, point.longitud),
-          icon: markerIcon,
-        );
-        _areaMarkers.add(marker);
-      }
+  LatLngBounds _getBoundsForArea(List<PuntoArea> puntos) {
+    double southWestLat = puntos.first.latitud;
+    double southWestLng = puntos.first.longitud;
+    double northEastLat = puntos.first.latitud;
+    double northEastLng = puntos.first.longitud;
 
-      // Create a polygon representing the area
-      final polygon = Polygon(
-        polygonId: PolygonId('polygon_${area.nombre}'),
-        points: area.puntoarea.map((p) => LatLng(p.latitud, p.longitud)).toList(),
-        strokeColor: Colors.black,
-        strokeWidth: 3,
-        fillColor: Color(int.parse('0xff${area.color.substring(1)}')).withOpacity(0.3),
-      );
-      _areaPolygons.add(polygon);
+    for (var punto in puntos) {
+      if (punto.latitud < southWestLat) southWestLat = punto.latitud;
+      if (punto.longitud < southWestLng) southWestLng = punto.longitud;
+      if (punto.latitud > northEastLat) northEastLat = punto.latitud;
+      if (punto.longitud > northEastLng) northEastLng = punto.longitud;
     }
 
-    setState(() {});  // Update the map with the new markers and polygons
+    return LatLngBounds(
+      southwest: LatLng(southWestLat, southWestLng),
+      northeast: LatLng(northEastLat, northEastLng),
+    );
   }
 
-  // Create a custom marker bitmap using SVG
+  //para mostrar las areas de cultivo
+  void _showRegisteredAreasModal(BuildContext context, List<AreaCultivo> areas) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Añadir el BottomNavigationBar en la parte superior del modal
+              ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
+                ),
+                child: BottomNavigationBar(
+                  items: const <BottomNavigationBarItem>[
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.terrain),
+                      label: 'Tierras',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.grass),
+                      label: 'Cultivos',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.nearby_error),
+                      label: 'Informacion',
+                    ),
+                  ],
+                  currentIndex: _selectedIndex,
+                  selectedItemColor: const Color(0xFF025940),
+                  unselectedItemColor: Colors.white,
+                  onTap: (index) {
+                    setState(() {
+                      _selectedIndex = index;
+                    });
+                    Navigator.pop(context);  // Cerrar el modal para abrir la nueva vista según la selección
+                    if (index == 0) {
+                      _loadLineasTeleferico();  // Volver a mostrar tierras registradas
+                    } else if (index == 1) {
+                      // Aquí puedes implementar la acción para "Cultivos"
+                    } else if (index == 2) {
+                      // Aquí puedes implementar la acción para "Información"
+                    }
+                  },
+                  backgroundColor: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
+                  elevation: 0,
+                ),
+              ),
+              
+              // Título del modal
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Tierras Registradas',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
+              
+              // ListView de áreas registradas
+              ListView.builder(
+                shrinkWrap: true,
+                itemCount: areas.length,
+                itemBuilder: (context, index) {
+                  final area = areas[index];
+                  return ListTile(
+                    title: Text(area.nombre),  // Nombre de la tierra
+                    subtitle: Row(
+                      children: [
+                        // Mostrar un contenedor con el color
+                        Container(
+                          width: 20,   // Ancho del círculo de color
+                          height: 20,  // Alto del círculo de color
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,  // Hacerlo circular
+                            color: Color(int.parse('0xff${area.color.substring(1)}')),  // Convertir el código de color
+                          ),
+                        ),
+                        SizedBox(width: 8),  // Espacio entre el color y el texto
+                        Text('Color: ${area.color}'),  // Mostrar el valor del color como texto
+                      ],
+                    ),
+                    trailing: Icon(Icons.arrow_forward),
+                    onTap: () {
+                      _focusOnArea(area);  // Llamar a la función para enfocar la cámara en el área seleccionada
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+              
+              SizedBox(height: 20),
+              
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);  // Cerrar el modal
+                },
+                child: Text('Cerrar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
   Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
-    final svgString = await rootBundle.loadString('assets/svgs/TelefericoIcon.svg');
+    final svgString = await rootBundle.loadString('assets/svgs/radio_button_unchecked.svg');
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
-    const double size = 130.0;
+    const double size = 50.0;
 
     final Paint paint = Paint()
       ..color = color
@@ -525,9 +624,11 @@ class _HomeViewState extends ConsumerState<HomeView> {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5;
 
+    // Dibujar el círculo de color personalizado
     canvas.drawCircle(Offset(size / 2, size / 2), size / 2, paint);
     canvas.drawCircle(Offset(size / 2, size / 2), size / 2, borderPaint);
 
+    // Dibujar el ícono SVG dentro del círculo
     final DrawableRoot svgDrawableRoot = await svg.fromSvgString(svgString, svgString);
     svgDrawableRoot.scaleCanvasToViewBox(canvas, Size(size, size));
     svgDrawableRoot.clipCanvasToViewBox(canvas);
@@ -541,11 +642,46 @@ class _HomeViewState extends ConsumerState<HomeView> {
     return BitmapDescriptor.fromBytes(uint8List);
   }
 
-  // Show registered areas on the map when the "Tierras" button is pressed
-  void _showRegisteredAreas() {
-    _loadLineasTeleferico();  // Load and display the registered areas
-  }
+  Future<void> _loadMarkersAndPolygons(List<AreaCultivo> areas) async {
+  for (var area in areas) {
+    // Añadir marcadores para cada punto en el área
+    for (var point in area.puntoarea) {
+      final markerIcon = await _createCustomMarkerBitmap(
+        Color(int.parse('0xff${area.color.substring(1)}')),  // Usar el color de cada área
+      );
+      final marker = Marker(
+        markerId: MarkerId('${point.latitud},${point.longitud}'),
+        position: LatLng(point.latitud, point.longitud),
+        icon: markerIcon,  // Usar el icono personalizado
+      );
+      _areaMarkers.add(marker);
+    }
 
+    // Crear un polígono para representar el área
+    final polygon = Polygon(
+      polygonId: PolygonId('polygon_${area.nombre}'),
+      points: area.puntoarea.map((p) => LatLng(p.latitud, p.longitud)).toList(),
+      strokeColor: Colors.black,
+      strokeWidth: 3,
+      fillColor: Color(int.parse('0xff${area.color.substring(1)}')).withOpacity(0.3),
+    );
+    _areaPolygons.add(polygon);
+  }
+  setState(() {});  // Actualizar el mapa con los nuevos marcadores y polígonos
+}
+
+  Future<void> _loadLineasTeleferico() async {
+    _firebaseController.getLineasTelefericos().listen((lineas) {
+      print("Áreas de cultivo obtenidas: ${lineas.length}");
+      setState(() {
+        _areaMarkers.clear();
+        _areaPolygons.clear();
+        _loadMarkersAndPolygons(lineas);  // Cargar marcadores y polígonos
+      });
+      _showRegisteredAreasModal(context, lineas);
+  });
+
+}
 
   @override
   Widget build(BuildContext context) {
@@ -607,14 +743,12 @@ class _HomeViewState extends ConsumerState<HomeView> {
               _googleMapController = controller;
               _updateMapStyle();
             },
+            markers: Set<Marker>.from(_areaMarkers),  // Muestra todos los marcadores de áreas de cultivo
+            polygons: Set<Polygon>.from(_areaPolygons),
             onTap: (LatLng position) {
               _showOriginDestinationBottomSheet(position);
             },
-            markers: _destinationMarker != null
-                ? {
-                    _destinationMarker!,
-                  }
-                : {},
+            
           ),
           if (_isLoading)
             Center(
@@ -653,15 +787,15 @@ class _HomeViewState extends ConsumerState<HomeView> {
                   child: BottomNavigationBar(
                     items: const <BottomNavigationBarItem>[
                       BottomNavigationBarItem(
-                        icon: Icon(Icons.cable),
+                        icon: Icon(Icons.terrain),
                         label: 'Tierras',
                       ),
                       BottomNavigationBarItem(
-                        icon: Icon(Icons.local_taxi),
+                        icon: Icon(Icons.grass),
                         label: 'Cultivos',
                       ),
                       BottomNavigationBarItem(
-                        icon: Icon(Icons.local_taxi),
+                        icon: Icon(Icons.nearby_error),
                         label: 'Informacion',
                       ),
                     ],
@@ -675,8 +809,8 @@ class _HomeViewState extends ConsumerState<HomeView> {
                         _selectedIndex = index;
                       });
                      if (index == 0) {
-            _showRegisteredAreas();  // Show areas when "Tierras" is tapped
-          }
+                        _loadLineasTeleferico();  // Show areas when "Tierras" is tapped
+                      }
                       
                     },
                     backgroundColor: Colors.transparent,
