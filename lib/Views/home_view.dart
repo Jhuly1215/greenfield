@@ -11,6 +11,13 @@ import 'package:google_place/google_place.dart';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_gmaps/user_profile/view/user_profile_view.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_gmaps/Controllers/MiTeleferico/AreaCultivoController.dart';
+import 'package:flutter_gmaps/models/AreaCultivo/AreaCultivo.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'dart:ui' as ui;
+
 
 class HomeView extends ConsumerStatefulWidget {
   final VoidCallback toggleTheme;
@@ -50,6 +57,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
   bool _isLoading = false; // Variable para el loader
   Marker? _destinationMarker; // Variable para el marcador
 
+  List<Marker> _areaMarkers = [];
+  List<Polygon> _areaPolygons = [];
+  final AreaCultivoController _firebaseController = AreaCultivoController();
   @override
   void initState() {
     super.initState();
@@ -236,22 +246,17 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                 child: Column(
                                   children: [
                                     TextField(
-                             
                                       decoration: InputDecoration(
+                                        
                                         labelText: 'Cultivos',
-                            
                                         prefixIcon: Icon(Icons.location_on),
                                       ),
                                       onChanged: (value) async {
                                         if (value.isNotEmpty) {
-                                          var result = await googlePlace
-                                              .autocomplete
-                                              .get(value);
-                                          if (result != null &&
-                                              result.predictions != null) {
+                                          var result = await googlePlace.autocomplete.get(value);
+                                          if (result != null &&result.predictions != null) {
                                             setState(() {
-                                              _originPredictions =
-                                                  result.predictions!;
+                                              _originPredictions =result.predictions!;
                                             });
                                           }
                                         } else {
@@ -265,39 +270,19 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                         ? Container(
                                             height: 100,
                                             child: ListView.builder(
-                                              itemCount:
-                                                  _originPredictions.length,
+                                              itemCount:_originPredictions.length,
                                               itemBuilder: (context, index) {
                                                 return ListTile(
                                                   title: Text(
-                                                      _originPredictions[index]
-                                                              .description ??
-                                                          ''),
+                                                      _originPredictions[index].description ??''),
                                                   onTap: () async {
-                                                    final placeId =
-                                                        _originPredictions[
-                                                                index]
-                                                            .placeId!;
-                                                    final details =
-                                                        await googlePlace
-                                                            .details
-                                                            .get(placeId);
-                                                    if (details != null &&
-                                                        details.result !=
-                                                            null) {
-                                                      final location = details
-                                                          .result!
-                                                          .geometry!
-                                                          .location!;
+                                                    final placeId = _originPredictions[index].placeId!;
+                                                    final details =await googlePlace.details.get(placeId);
+                                                    if (details != null &&details.result !=null) {
+                                                      final location = details.result!.geometry!.location!;
                                                       setState(() {
-                                                        _originPosition =
-                                                            LatLng(
-                                                                location.lat!,
-                                                                location.lng!);
-                                                        _originAddress = details
-                                                            .result!
-                                                            .formattedAddress!;
-                                                  
+                                                        _originPosition =LatLng(location.lat!,location.lng!);
+                                                        _originAddress = details.result!.formattedAddress!;
                                                         _originPredictions = [];
                                                       });
                                                     }
@@ -315,12 +300,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                 onPressed: () async {
                                   LatLng? result = await _selectLocationOnMap();
                                   if (result != null) {
-                                    final address =
-                                        await _getAddressFromLatLng(result);
+                                    final address =await _getAddressFromLatLng(result);
                                     setState(() {
                                       _originPosition = result;
                                       _originAddress = address;
-          
                                     });
                                   }
                                 },
@@ -334,7 +317,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                 child: Column(
                                   children: [
                                     TextField(
-                                     
                                       decoration: InputDecoration(
                                         labelText: 'Destino',
                                         hintText: 'Selecciona el destino',
@@ -342,14 +324,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                       ),
                                       onChanged: (value) async {
                                         if (value.isNotEmpty) {
-                                          var result = await googlePlace
-                                              .autocomplete
-                                              .get(value);
-                                          if (result != null &&
-                                              result.predictions != null) {
+                                          var result = await googlePlace.autocomplete.get(value);
+                                          if (result != null &&result.predictions != null) {
                                             setState(() {
-                                              _destinationPredictions =
-                                                  result.predictions!;
+                                              _destinationPredictions =result.predictions!;
                                             });
                                           }
                                         } else {
@@ -359,48 +337,24 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                         }
                                       },
                                     ),
-                                    _destinationPredictions.isNotEmpty
-                                        ? Container(
+                                    _destinationPredictions.isNotEmpty? Container(
                                             height: 100,
                                             child: ListView.builder(
-                                              itemCount: _destinationPredictions
-                                                  .length,
+                                              itemCount: _destinationPredictions.length,
                                               itemBuilder: (context, index) {
                                                 return ListTile(
                                                   title: Text(
-                                                      _destinationPredictions[
-                                                                  index]
-                                                              .description ??
-                                                          ''),
+                                                      _destinationPredictions[index].description ??''),
                                                   onTap: () async {
-                                                    final placeId =
-                                                        _destinationPredictions[
-                                                                index]
-                                                            .placeId!;
-                                                    final details =
-                                                        await googlePlace
-                                                            .details
-                                                            .get(placeId);
-                                                    if (details != null &&
-                                                        details.result !=
-                                                            null) {
-                                                      final location = details
-                                                          .result!
-                                                          .geometry!
-                                                          .location!;
+                                                    final placeId = _destinationPredictions[index].placeId!;
+                                                    final details =await googlePlace.details.get(placeId);
+                                                    if (details != null &&details.result !=null) {
+                                                      final location = details.result!.geometry!.location!;
                                                       setState(() {
-                                                        _destinationPosition =
-                                                            LatLng(
-                                                                location.lat!,
-                                                                location.lng!);
-                                                        _destinationAddress =
-                                                            details.result!
-                                                                .formattedAddress!;
-                                                       
-                                                               
-                                                            _destinationAddress;
-                                                        _destinationPredictions =
-                                                            [];
+                                                        _destinationPosition =LatLng(location.lat!,location.lng!);
+                                                        _destinationAddress =details.result!.formattedAddress!;
+                                                        _destinationAddress;
+                                                        _destinationPredictions =[];
                                                       });
                                                     }
                                                   },
@@ -417,8 +371,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
                                 onPressed: () async {
                                   LatLng? result = await _selectLocationOnMap();
                                   if (result != null) {
-                                    final address =
-                                        await _getAddressFromLatLng(result);
+                                    final address =await _getAddressFromLatLng(result);
                                     setState(() {
                                       _destinationPosition = result;
                                       _destinationAddress = address;
@@ -516,6 +469,84 @@ class _HomeViewState extends ConsumerState<HomeView> {
       }
   }
 
+  //para mostrar las areas de cultivo
+  
+  // Fetch registered areas and update markers and polygons
+  Future<void> _loadLineasTeleferico() async {
+    _firebaseController.getLineasTelefericos().listen((lineas) {
+      setState(() {
+        _areaMarkers.clear();
+        _areaPolygons.clear();
+        _loadMarkersAndPolygons(lineas);
+      });
+    });
+  }
+
+  // Create markers and polygons from registered areas
+  Future<void> _loadMarkersAndPolygons(List<AreaCultivo> areas) async {
+    for (var area in areas) {
+      // Add markers for each point in the area
+      for (var point in area.puntoarea) {
+        final markerIcon = await _createCustomMarkerBitmap(Color(int.parse('0xff${area.color.substring(1)}')));
+        final marker = Marker(
+          markerId: MarkerId('${point.latitud},${point.longitud}'),
+          position: LatLng(point.latitud, point.longitud),
+          icon: markerIcon,
+        );
+        _areaMarkers.add(marker);
+      }
+
+      // Create a polygon representing the area
+      final polygon = Polygon(
+        polygonId: PolygonId('polygon_${area.nombre}'),
+        points: area.puntoarea.map((p) => LatLng(p.latitud, p.longitud)).toList(),
+        strokeColor: Colors.black,
+        strokeWidth: 3,
+        fillColor: Color(int.parse('0xff${area.color.substring(1)}')).withOpacity(0.3),
+      );
+      _areaPolygons.add(polygon);
+    }
+
+    setState(() {});  // Update the map with the new markers and polygons
+  }
+
+  // Create a custom marker bitmap using SVG
+  Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
+    final svgString = await rootBundle.loadString('assets/svgs/TelefericoIcon.svg');
+    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(pictureRecorder);
+    const double size = 130.0;
+
+    final Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final Paint borderPaint = Paint()
+      ..color = const ui.Color.fromARGB(255, 97, 97, 97)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5;
+
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2, paint);
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2, borderPaint);
+
+    final DrawableRoot svgDrawableRoot = await svg.fromSvgString(svgString, svgString);
+    svgDrawableRoot.scaleCanvasToViewBox(canvas, Size(size, size));
+    svgDrawableRoot.clipCanvasToViewBox(canvas);
+    svgDrawableRoot.draw(canvas, Rect.fromLTWH(0, 0, size, size));
+
+    final picture = pictureRecorder.endRecording();
+    final img = await picture.toImage(size.toInt(), size.toInt());
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+    final uint8List = byteData!.buffer.asUint8List();
+
+    return BitmapDescriptor.fromBytes(uint8List);
+  }
+
+  // Show registered areas on the map when the "Tierras" button is pressed
+  void _showRegisteredAreas() {
+    _loadLineasTeleferico();  // Load and display the registered areas
+  }
+
+
   @override
   Widget build(BuildContext context) {
     _updateMapStyle();
@@ -524,9 +555,8 @@ class _HomeViewState extends ConsumerState<HomeView> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         centerTitle: true,
-        title: Image.asset(
-          'assets/pngs/Logo Menta_Mesa de trabajo 1.png',
-          height: 70,
+        title: Image.asset('assets/pngs/LOGO_COMPLETO_BLANCO-01.png',
+          height: 140,
         ),
         leading: IconButton(
           icon: Icon(
@@ -535,10 +565,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
           ),
           onPressed: () {
             // Navigate to user profile view
-            Navigator.push(
-              context,
-              UserProfileView.route(),
-            );
+            Navigator.push(context,UserProfileView.route(),);
           },
         ),
         actions: [
@@ -633,23 +660,24 @@ class _HomeViewState extends ConsumerState<HomeView> {
                         icon: Icon(Icons.local_taxi),
                         label: 'Cultivos',
                       ),
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.local_taxi),
+                        label: 'Informacion',
+                      ),
                     ],
                     currentIndex: _selectedIndex,
-                    selectedItemColor: _isDarkMode
-                        ? Colors.blue
-                        : Theme.of(context)
-                            .bottomNavigationBarTheme
-                            .selectedItemColor,
-                    unselectedItemColor: _isDarkMode
-                        ? Colors.black
-                        : Theme.of(context)
-                            .bottomNavigationBarTheme
-                            .unselectedItemColor,
+                  
+                    selectedItemColor: const Color(0xFF025940),
+                    // Asigna el color 071D26 a los ítems no seleccionados
+                    unselectedItemColor: Colors.white,
                     onTap: (index) {
                       setState(() {
                         _selectedIndex = index;
                       });
-                      _showOriginDestinationBottomSheet(_currentPosition);
+                     if (index == 0) {
+            _showRegisteredAreas();  // Show areas when "Tierras" is tapped
+          }
+                      
                     },
                     backgroundColor: Colors.transparent,
                     elevation: 0,

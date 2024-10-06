@@ -43,7 +43,7 @@ class _ListLineasTelefericoScreenState extends State<ListLineasTelefericoScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Líneas de Teleférico'),
+        title: Text('Areas de cultivo'),
         actions: [
           IconButton(
             icon: Icon(Icons.add),

@@ -2,9 +2,9 @@ class AssetsConstants {
   static const String _svgsPath = 'assets/svgs';
   static const String _imagesPath = 'assets/pngs';
 
-  static const String alertoLogoPng = '$_imagesPath/Logo Menta_Mesa de trabajo 1.png';
+  static const String alertoLogoPng = '$_imagesPath/LOGO_ISOTIPO_VERDE-01.png';
 
-  static const String alertoLogo = '$_svgsPath/alerto_logo.svg';
+  static const String alertoLogo = '$_svgsPath/LOGO_ISOTIPO_VERDE-01.svg';
   static const String homeFilledIcon = '$_svgsPath/home_filled.svg';
   static const String homeOutlinedIcon = '$_svgsPath/home_outlined.svg';
   static const String notifFilledIcon = '$_svgsPath/notif_filled.svg';

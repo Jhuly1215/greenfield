@@ -92,17 +92,4 @@ class AuthAPI implements IAuthAPI {
       );
     }
   }
-
-  // Firebase doesn't require a separate method for Google Sign-In. You can use Firebase's built-in Google Sign-In functionality.
-  // Make sure to configure OAuth in the Firebase Console for Google Sign-In to work.
-
-  // Future<void> googleSignIn() async {
-  //   try {
-  //     // Perform Google Sign-In using Firebase
-  //     // ...
-  //     await Future.delayed(const Duration(microseconds: 500));
-  //   } catch (e) {
-  //     print(e);
-  //   }
-  // }
 }

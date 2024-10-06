@@ -134,7 +134,7 @@ void _mostrarAreaEnMapa(List<PuntoArea> puntosArea) {
 Widget build(BuildContext context) {
   return Scaffold(
     appBar: AppBar(
-      title: Text('Ruta de Teleférico'),
+      title: Text('Area de cultivo'),
     ),
     body: Stack(
       children: [

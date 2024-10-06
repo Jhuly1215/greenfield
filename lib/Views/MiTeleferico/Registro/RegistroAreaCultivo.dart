@@ -197,7 +197,7 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
       ..color = color
       ..style = PaintingStyle.fill;
     final Paint borderPaint = Paint()
-      ..color = Colors.black
+      ..color = const ui.Color.fromARGB(255, 97, 97, 97)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5;
 
