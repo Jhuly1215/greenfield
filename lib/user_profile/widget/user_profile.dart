@@ -84,7 +84,7 @@ class UserProfile extends ConsumerWidget {
                             },
                           ),
                           ListTile(
-                            leading: const Icon(Icons.cable, color: Color(0xFF071D26)),
+                            leading: const Icon(Icons.terrain, color: Color(0xFF071D26)),
                             title: const Text(
                               'Tierras',
                               style: TextStyle(color: Color(0xFF071D26)), // Letras color 071D26

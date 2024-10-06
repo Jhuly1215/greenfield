@@ -188,10 +188,10 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
   }
 
   Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
-    final svgString = await rootBundle.loadString('assets/svgs/TelefericoIcon.svg');
+    final svgString = await rootBundle.loadString('assets/svgs/radio_button_unchecked.svg');
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
-    const double size = 130.0;
+    const double size = 50.0;
 
     final Paint paint = Paint()
       ..color = color
