@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_gmaps/.env.dart';
 import 'package:flutter_gmaps/Views/MiTeleferico/RouteViewAreaCultivo.dart';
+import 'package:flutter_gmaps/Views/map_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -695,148 +696,152 @@ class _HomeViewState extends ConsumerState<HomeView> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    _updateMapStyle();
+  // Mostrar la pantalla correcta según el índice seleccionado
+  Widget _getSelectedScreen() {
+    switch (_selectedIndex) {
+      case 1:
+        return MapScreen();  // Aquí mostramos el MapScreen cuando el índice es 1
+      default:
+        return GoogleMap(
+          myLocationEnabled: true,
+          myLocationButtonEnabled: true,
+          zoomControlsEnabled: false,
+          initialCameraPosition: _initialCameraPosition,
+          onMapCreated: (controller) {
+            _googleMapController = controller;
+            _updateMapStyle();
+          },
+          markers: Set<Marker>.from(_areaMarkers),
+          polygons: Set<Polygon>.from(_areaPolygons),
+        );
+    }
+  }
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        centerTitle: true,
-        title: Image.asset(
-          'assets/pngs/LOGO_COMPLETO_BLANCO-01.png',
-          height: 140,
+@override
+Widget build(BuildContext context) {
+  _updateMapStyle();
+
+  return Scaffold(
+    extendBodyBehindAppBar: true,
+    appBar: AppBar(
+      centerTitle: true,
+      title: Image.asset(
+        'assets/pngs/LOGO_COMPLETO_BLANCO-01.png',
+        height: 140,
+      ),
+      leading: IconButton(
+        icon: Icon(
+          Icons.account_circle,
+          color: _isDarkMode ? Colors.white : Colors.black,
         ),
-        leading: IconButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            UserProfileView.route(),
+          );
+        },
+      ),
+      actions: [
+        IconButton(
           icon: Icon(
-            Icons.account_circle,
+            Icons.brightness_6,
             color: _isDarkMode ? Colors.white : Colors.black,
           ),
-          onPressed: () {
-            // Navigate to user profile view
-            Navigator.push(
-              context,
-              UserProfileView.route(),
-            );
-          },
+          onPressed: _toggleTheme,
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.brightness_6,
-              color: _isDarkMode ? Colors.white : Colors.black,
-            ),
-            onPressed: _toggleTheme,
+        IconButton(
+          icon: Icon(
+            Icons.notifications,
+            color: _isDarkMode ? Colors.white : Colors.black,
           ),
-          IconButton(
-            icon: Icon(
-              Icons.notifications,
-              color: _isDarkMode ? Colors.white : Colors.black,
-            ),
-            onPressed: () {},
-          ),
-        ],
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            bottom: Radius.circular(30),
-          ),
+          onPressed: () {},
         ),
-        backgroundColor: _isDarkMode
-            ? Colors.black
-            : Theme.of(context).appBarTheme.backgroundColor,
-        foregroundColor: _isDarkMode
-            ? Colors.white
-            : Theme.of(context).appBarTheme.iconTheme?.color,
+      ],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(30),
+        ),
       ),
-      body: Stack(
-        children: [
-          GoogleMap(
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
-            zoomControlsEnabled: false,
-            initialCameraPosition: _initialCameraPosition,
-            onMapCreated: (controller) {
-              _googleMapController = controller;
-              _updateMapStyle();
-            },
-            markers: Set<Marker>.from(
-                _areaMarkers), // Muestra todos los marcadores de áreas de cultivo
-            polygons: Set<Polygon>.from(_areaPolygons),
-            // Elimina el onTap general que podría estar interfiriendo:
-            // onTap: (LatLng position) {
-            //   _showOriginDestinationBottomSheet(position);
-            // },
+      backgroundColor: _isDarkMode
+          ? Colors.black
+          : Theme.of(context).appBarTheme.backgroundColor,
+      foregroundColor: _isDarkMode
+          ? Colors.white
+          : Theme.of(context).appBarTheme.iconTheme?.color,
+    ),
+    body: Stack(
+      children: [
+        _getSelectedScreen(),  // Usar el método para mostrar la pantalla correcta
+        if (_isLoading)
+          Center(
+            child: CircularProgressIndicator(),
           ),
-          if (_isLoading)
-            Center(
-              child: CircularProgressIndicator(),
-            ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: GestureDetector(
-              onTap: () => _showRegisteredAreasModal(
-                  context, []), // Muestra las áreas registradas
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _isDarkMode
-                      ? Colors.black
-                      : Theme.of(context)
-                          .bottomNavigationBarTheme
-                          .backgroundColor,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: GestureDetector(
+            onTap: () => _showRegisteredAreasModal(context, []),
+            child: Container(
+              decoration: BoxDecoration(
+                color: _isDarkMode
+                    ? Colors.black
+                    : Theme.of(context)
+                        .bottomNavigationBarTheme
+                        .backgroundColor,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black38,
+                    blurRadius: 10,
+                    offset: Offset(0, -1),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black38,
-                      blurRadius: 10,
-                      offset: Offset(0, -1),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
+                ),
+                child: BottomNavigationBar(
+                  items: const <BottomNavigationBarItem>[
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.terrain),
+                      label: 'Tierras',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.map),  // Mantener el icono y etiqueta original
+                      label: 'Mapa',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.nearby_error),
+                      label: 'Informacion',
                     ),
                   ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
-                  ),
-                  child: BottomNavigationBar(
-                    items: const <BottomNavigationBarItem>[
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.terrain),
-                        label: 'Tierras',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.grass),
-                        label: 'Cultivos',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.nearby_error),
-                        label: 'Informacion',
-                      ),
-                    ],
-                    currentIndex: _selectedIndex,
-                    selectedItemColor: const Color(0xFF025940),
-                    unselectedItemColor: Colors.white,
-                    onTap: (index) {
-                      setState(() {
-                        _selectedIndex = index;
-                      });
-                      if (index == 0) {
-                        _loadLineasTeleferico(); // Mostrar áreas cuando se selecciona "Tierras"
-                      }
-                    },
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                  ),
+                  currentIndex: _selectedIndex,
+                  selectedItemColor: const Color(0xFF025940),
+                  unselectedItemColor: Colors.white,
+                  onTap: (index) {
+                    setState(() {
+                      _selectedIndex = index;  // Actualizar el índice seleccionado
+                    });
+                    if (index == 0) {
+                      _loadLineasTeleferico();  // Cargar las tierras si el índice es 0
+                    }
+                  },
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
                 ),
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
+
 }

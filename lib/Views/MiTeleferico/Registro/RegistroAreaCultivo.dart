@@ -56,35 +56,28 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
     _mapController = controller;
     _loadMarkersAndPolygons();
   }
- Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
-    final svgString = await rootBundle.loadString('assets/svgs/TelefericoIcon.svg');
-    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
-    final Canvas canvas = Canvas(pictureRecorder);
-    const double size = 130.0;
+Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
+  final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+  final Canvas canvas = Canvas(pictureRecorder);
+  const double size = 50.0; // Definir el tamaño del punto
 
-    final Paint paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    final Paint borderPaint = Paint()
-      ..color = const ui.Color.fromARGB(255, 97, 97, 97)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5;
+  final Paint paint = Paint()
+    ..color = color
+    ..style = PaintingStyle.fill;
 
-    canvas.drawCircle(Offset(size / 2, size / 2), size / 2, paint);
-    canvas.drawCircle(Offset(size / 2, size / 2), size / 2, borderPaint);
+  // Dibujar el círculo de color
+  canvas.drawCircle(Offset(size / 2, size / 2), size / 2, paint);
 
-    final DrawableRoot svgDrawableRoot = await svg.fromSvgString(svgString, svgString);
-    svgDrawableRoot.scaleCanvasToViewBox(canvas, Size(size, size));
-    svgDrawableRoot.clipCanvasToViewBox(canvas);
-    svgDrawableRoot.draw(canvas, Rect.fromLTWH(0, 0, size, size));
+  // Finalizar la grabación del canvas
+  final picture = pictureRecorder.endRecording();
+  final img = await picture.toImage(size.toInt(), size.toInt());
+  final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+  final uint8List = byteData!.buffer.asUint8List();
 
-    final picture = pictureRecorder.endRecording();
-    final img = await picture.toImage(size.toInt(), size.toInt());
-    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-    final uint8List = byteData!.buffer.asUint8List();
+  // Devolver el marcador como un icono de BitmapDescriptor
+  return BitmapDescriptor.fromBytes(uint8List);
+}
 
-    return BitmapDescriptor.fromBytes(uint8List);
-  }
   Future<void> _loadMarkersAndPolygons() async {
     _newMarkers.clear();
     _newPolygons.clear();
