@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_gmaps/.env.dart';
 import 'package:flutter_gmaps/Views/MiTeleferico/RouteViewAreaCultivo.dart';
@@ -17,7 +18,6 @@ import 'package:flutter_gmaps/models/AreaCultivo/AreaCultivo.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:ui' as ui;
-
 
 class HomeView extends ConsumerStatefulWidget {
   final VoidCallback toggleTheme;
@@ -44,22 +44,16 @@ class _HomeViewState extends ConsumerState<HomeView> {
 
   late GoogleMapController _googleMapController;
   late LatLng _currentPosition;
-  LatLng? _originPosition;
-  LatLng? _destinationPosition;
-  String _originAddress = '';
-  String _destinationAddress = '';
   StreamSubscription<Position>? _positionStream;
   bool _isDarkMode = false;
   int _selectedIndex = 0;
-  List<AutocompletePrediction> _originPredictions = [];
-  List<AutocompletePrediction> _destinationPredictions = [];
-  final GooglePlace googlePlace = GooglePlace(googleAPIKey);
   bool _isLoading = false; // Variable para el loader
   Marker? _destinationMarker; // Variable para el marcador
 
   List<Marker> _areaMarkers = [];
   List<Polygon> _areaPolygons = [];
   final AreaCultivoController _firebaseController = AreaCultivoController();
+
   @override
   void initState() {
     super.initState();
@@ -110,12 +104,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
   Future<void> _getCurrentLocation() async {
     final position = await Geolocator.getCurrentPosition();
     _currentPosition = LatLng(position.latitude, position.longitude);
-    _originPosition = _currentPosition;
-    final address = await _getAddressFromLatLng(_currentPosition);
-    setState(() {
-      _originAddress = address;
-    });
-
     _googleMapController.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
@@ -124,26 +112,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
         ),
       ),
     );
-  }
-
-  Future<String> _getAddressFromLatLng(LatLng position) async {
-    final url =
-        'https://maps.googleapis.com/maps/api/geocode/json?latlng=${position.latitude},${position.longitude}&key=$googleAPIKey';
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200) {
-      final jsonResponse = json.decode(response.body);
-      if (jsonResponse['results'] != null &&
-          jsonResponse['results'].length > 0) {
-        return jsonResponse['results'][0]['formatted_address'];
-      }
-    }
-    return '';
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
   }
 
   void _updateMapStyle() async {
@@ -164,82 +132,32 @@ class _HomeViewState extends ConsumerState<HomeView> {
       _updateMapStyle();
     });
   }
+double _calculateArea(List<PuntoArea> puntos) {
+  if (puntos.length < 3) return 0.0; // Un polígono necesita al menos 3 puntos
 
-  void _showOriginDestinationBottomSheet(LatLng destinationPosition) async {
-    setState(() {
-      _isLoading = true; // Mostrar loader
-      _destinationMarker = Marker(
-        markerId: MarkerId('destination'),
-        position: destinationPosition,
-      ); // Agregar marcador
-    });
+  const double earthRadius = 6378137.0; // Radio de la Tierra en metros
+  double area = 0.0;
 
-    final address = await _getAddressFromLatLng(destinationPosition);
+  for (int i = 0; i < puntos.length; i++) {
+    final punto1 = puntos[i];
+    final punto2 = puntos[(i + 1) % puntos.length]; // Para cerrar el polígono
 
-    setState(() {
-      _isLoading = false; // Ocultar loader
-      _destinationPosition = destinationPosition;
-      _destinationAddress = address;
-    });
+    final double x1 = _toRadians(punto1.longitud);
+    final double y1 = _toRadians(punto1.latitud);
+    final double x2 = _toRadians(punto2.longitud);
+    final double y2 = _toRadians(punto2.latitud);
 
+    area += (x2 - x1) * (2 + sin(y1) + sin(y2));
   }
 
-  Future<LatLng?> _selectLocationOnMap() async {
-    LatLng? selectedLocation;
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return Scaffold(
-              appBar: AppBar(
-                title: Text('Selecciona la ubicación'),
-                actions: [
-                  IconButton(
-                    icon: Icon(Icons.check),
-                    onPressed: () {
-                      Navigator.of(context).pop(selectedLocation);
-                    },
-                  ),
-                ],
-              ),
-              body: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: _currentPosition,
-                  zoom: 14.5,
-                ),
-                onTap: (LatLng position) {
-                  setState(() {
-                    selectedLocation = position;
-                  });
-                },
-                markers: selectedLocation != null
-                    ? {
-                        Marker(
-                          markerId: MarkerId('selected_location'),
-                          position: selectedLocation!,
-                        ),
-                      }
-                    : {},
-              ),
-            );
-          },
-        );
-      },
-    );
-    return selectedLocation;
-  }
+  area = area * earthRadius * earthRadius / 2.0;
+  return area.abs(); // Devolvemos el valor absoluto del área en metros cuadrados
+}
 
-  void _navigateToSelectedTransport() {
-    if (_originPosition != null && _destinationPosition != null) {   
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => RouteViewTeleferico(
-          originPosition: _originPosition!,
-          destinationPosition: _destinationPosition!,
-        ),
-        ));
-      }
-  }
+double _toRadians(double degree) {
+  return degree * pi / 180;
+}
+
   void _focusOnArea(AreaCultivo area) {
     if (_googleMapController == null || area.puntoarea.isEmpty) return;
 
@@ -248,9 +166,138 @@ class _HomeViewState extends ConsumerState<HomeView> {
 
     // Mover la cámara a la posición del área seleccionada
     _googleMapController.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, 50),  // Ajustar el mapa a los límites del área
+      CameraUpdate.newLatLngBounds(
+          bounds, 50), // Ajustar el mapa a los límites del área
     );
+
+    // Mostrar el modal con la información del área seleccionada
+    _showAreaInformationBottomSheet(area);
   }
+
+  void _showAreaInformationBottomSheet(AreaCultivo area) {
+  final double areaSize = _calculateArea(area.puntoarea); // Calcular el área
+  final double areaInHectares = areaSize / 10000; // Convertir metros cuadrados a hectáreas
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          return Padding(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(30),
+                      topRight: Radius.circular(30),
+                    ),
+                    child: BottomNavigationBar(
+                      items: const <BottomNavigationBarItem>[
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.terrain),
+                          label: 'Tierras',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.grass),
+                          label: 'Cultivos',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.nearby_error),
+                          label: 'Informacion',
+                        ),
+                      ],
+                      currentIndex: _selectedIndex,
+                      selectedItemColor: _isDarkMode
+                          ? Colors.blue
+                          : Theme.of(context)
+                              .bottomNavigationBarTheme
+                              .selectedItemColor,
+                      unselectedItemColor: _isDarkMode
+                          ? Colors.black
+                          : Theme.of(context)
+                              .bottomNavigationBarTheme
+                              .unselectedItemColor,
+                      onTap: (index) {
+                        setState(() {
+                          _selectedIndex = index;
+                        });
+                      },
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Mostrar el nombre del área de cultivo
+                        Text(
+                          area.nombre,
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 10),
+
+                        // Mostrar el cultivo asociado
+                        Text(
+                          'Cultivo: ${area.cultivo}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        SizedBox(height: 10),
+
+                        // Mostrar el color del área
+                        Row(
+                          children: [
+                            Text('Color del Área:'),
+                            SizedBox(width: 10),
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Color(int.parse(
+                                    '0xff${area.color.substring(1)}')), // Convertir el color hexadecimal
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 20),
+
+                        // Mostrar el área calculada
+                        Text(
+                          'Área: ${areaInHectares.toStringAsFixed(2)} hectáreas', // Mostramos el área en hectáreas
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        SizedBox(height: 20),
+
+                        // Botón para cerrar el modal
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context); // Cerrar el BottomSheet
+                          },
+                          child: Text('Cerrar'),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
 
   LatLngBounds _getBoundsForArea(List<PuntoArea> puntos) {
     double southWestLat = puntos.first.latitud;
@@ -272,175 +319,183 @@ class _HomeViewState extends ConsumerState<HomeView> {
   }
 
   //para mostrar las areas de cultivo
-  void _showRegisteredAreasModal(BuildContext context, List<AreaCultivo> areas) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) {
-      return Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Añadir el BottomNavigationBar en la parte superior del modal
-              ClipRRect(
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(30),
-                  topRight: Radius.circular(30),
-                ),
-                child: BottomNavigationBar(
-                  items: const <BottomNavigationBarItem>[
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.terrain),
-                      label: 'Tierras',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.grass),
-                      label: 'Cultivos',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.nearby_error),
-                      label: 'Informacion',
-                    ),
-                  ],
-                  currentIndex: _selectedIndex,
-                  selectedItemColor: const Color(0xFF025940),
-                  unselectedItemColor: Colors.white,
-                  onTap: (index) {
-                    setState(() {
-                      _selectedIndex = index;
-                    });
-                    Navigator.pop(context);  // Cerrar el modal para abrir la nueva vista según la selección
-                    if (index == 0) {
-                      _loadLineasTeleferico();  // Volver a mostrar tierras registradas
-                    } else if (index == 1) {
-                      // Aquí puedes implementar la acción para "Cultivos"
-                    } else if (index == 2) {
-                      // Aquí puedes implementar la acción para "Información"
-                    }
-                  },
-                  backgroundColor: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
-                  elevation: 0,
-                ),
-              ),
-              
-              // Título del modal
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Tierras Registradas',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ),
-              
-              // ListView de áreas registradas
-              ListView.builder(
-                shrinkWrap: true,
-                itemCount: areas.length,
-                itemBuilder: (context, index) {
-                  final area = areas[index];
-                  return ListTile(
-                    title: Text(area.nombre),  // Nombre de la tierra
-                    subtitle: Row(
-                      children: [
-                        // Mostrar un contenedor con el color
-                        Container(
-                          width: 20,   // Ancho del círculo de color
-                          height: 20,  // Alto del círculo de color
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,  // Hacerlo circular
-                            color: Color(int.parse('0xff${area.color.substring(1)}')),  // Convertir el código de color
-                          ),
-                        ),
-                        SizedBox(width: 8),  // Espacio entre el color y el texto
-                        Text('Color: ${area.color}'),  // Mostrar el valor del color como texto
-                      ],
-                    ),
-                    trailing: Icon(Icons.arrow_forward),
-                    onTap: () {
-                      _focusOnArea(area);  // Llamar a la función para enfocar la cámara en el área seleccionada
-                      Navigator.pop(context);
+  void _showRegisteredAreasModal(
+      BuildContext context, List<AreaCultivo> areas) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Añadir el BottomNavigationBar en la parte superior del modal
+                ClipRRect(
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
+                  ),
+                  child: BottomNavigationBar(
+                    items: const <BottomNavigationBarItem>[
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.terrain),
+                        label: 'Tierras',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.grass),
+                        label: 'Cultivos',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.nearby_error),
+                        label: 'Informacion',
+                      ),
+                    ],
+                    currentIndex: _selectedIndex,
+                    selectedItemColor: const Color(0xFF025940),
+                    unselectedItemColor: Colors.white,
+                    onTap: (index) {
+                      setState(() {
+                        _selectedIndex = index;
+                      });
+                      Navigator.pop(
+                          context); // Cerrar el modal para abrir la nueva vista según la selección
+                      if (index == 0) {
+                        _loadLineasTeleferico(); // Volver a mostrar tierras registradas
+                      }
                     },
-                  );
-                },
-              ),
-              
-              SizedBox(height: 20),
-              
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);  // Cerrar el modal
-                },
-                child: Text('Cerrar'),
-              ),
-            ],
+                    backgroundColor: Theme.of(context)
+                        .bottomNavigationBarTheme
+                        .backgroundColor,
+                    elevation: 0,
+                  ),
+                ),
+
+                // Título del modal
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Tierras Registradas',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+
+                // ListView de áreas registradas
+                ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: areas.length,
+                  itemBuilder: (context, index) {
+                    final area = areas[index];
+                    return ListTile(
+                      title: Text(area.nombre), // Nombre de la tierra
+                      subtitle: Row(
+                        children: [
+                          // Mostrar un contenedor con el color
+                          Container(
+                            width: 20, // Ancho del círculo de color
+                            height: 20, // Alto del círculo de color
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle, // Hacerlo circular
+                              color: Color(int.parse(
+                                  '0xff${area.color.substring(1)}')), // Convertir el código de color
+                            ),
+                          ),
+                          SizedBox(
+                              width: 8), // Espacio entre el color y el texto
+                          Text(
+                              'Color: ${area.color}'), // Mostrar el valor del color como texto
+                        ],
+                      ),
+                      trailing: Icon(Icons.arrow_forward),
+                      onTap: () {
+                        _focusOnArea(
+                            area); // Llamar a la función para enfocar la cámara en el área seleccionada
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+
+                SizedBox(height: 20),
+
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context); // Cerrar el modal
+                  },
+                  child: Text('Cerrar'),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
-    final svgString = await rootBundle.loadString('assets/svgs/radio_button_unchecked.svg');
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
-    const double size = 50.0;
+    const double size = 100.0; // Tamaño del icono del marcador
 
     final Paint paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
+
     final Paint borderPaint = Paint()
-      ..color = const ui.Color.fromARGB(255, 97, 97, 97)
+      ..color = Colors.black
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5;
+      ..strokeWidth = 3;
 
     // Dibujar el círculo de color personalizado
     canvas.drawCircle(Offset(size / 2, size / 2), size / 2, paint);
     canvas.drawCircle(Offset(size / 2, size / 2), size / 2, borderPaint);
 
-    // Dibujar el ícono SVG dentro del círculo
-    final DrawableRoot svgDrawableRoot = await svg.fromSvgString(svgString, svgString);
-    svgDrawableRoot.scaleCanvasToViewBox(canvas, Size(size, size));
-    svgDrawableRoot.clipCanvasToViewBox(canvas);
-    svgDrawableRoot.draw(canvas, Rect.fromLTWH(0, 0, size, size));
+    // Terminar de grabar el dibujo
+    final ui.Picture picture = pictureRecorder.endRecording();
+    final ui.Image image = await picture.toImage(size.toInt(), size.toInt());
+    final ByteData? byteData =
+        await image.toByteData(format: ui.ImageByteFormat.png);
+    final Uint8List pngBytes = byteData!.buffer.asUint8List();
 
-    final picture = pictureRecorder.endRecording();
-    final img = await picture.toImage(size.toInt(), size.toInt());
-    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-    final uint8List = byteData!.buffer.asUint8List();
-
-    return BitmapDescriptor.fromBytes(uint8List);
+    return BitmapDescriptor.fromBytes(pngBytes);
   }
 
   Future<void> _loadMarkersAndPolygons(List<AreaCultivo> areas) async {
-  for (var area in areas) {
-    // Añadir marcadores para cada punto en el área
-    for (var point in area.puntoarea) {
-      final markerIcon = await _createCustomMarkerBitmap(
-        Color(int.parse('0xff${area.color.substring(1)}')),  // Usar el color de cada área
-      );
-      final marker = Marker(
-        markerId: MarkerId('${point.latitud},${point.longitud}'),
-        position: LatLng(point.latitud, point.longitud),
-        icon: markerIcon,  // Usar el icono personalizado
-      );
-      _areaMarkers.add(marker);
-    }
+    for (var area in areas) {
+      // Añadir marcadores para cada punto en el área
+      for (var point in area.puntoarea) {
+        final markerIcon = await _createCustomMarkerBitmap(
+          Color(int.parse(
+              '0xff${area.color.substring(1)}')), // Usar el color de cada área
+        );
+        final marker = Marker(
+          markerId: MarkerId('${point.latitud},${point.longitud}'),
+          position: LatLng(point.latitud, point.longitud),
+          icon: markerIcon, // Usar el icono personalizado
+          onTap: () {
+            _focusOnArea(
+                area); // Al hacer clic, enfocar y abrir el menú del área seleccionada
+          },
+        );
+        _areaMarkers.add(marker);
+      }
 
-    // Crear un polígono para representar el área
-    final polygon = Polygon(
-      polygonId: PolygonId('polygon_${area.nombre}'),
-      points: area.puntoarea.map((p) => LatLng(p.latitud, p.longitud)).toList(),
-      strokeColor: Colors.black,
-      strokeWidth: 3,
-      fillColor: Color(int.parse('0xff${area.color.substring(1)}')).withOpacity(0.3),
-    );
-    _areaPolygons.add(polygon);
+      // Crear un polígono para representar el área
+      final polygon = Polygon(
+        polygonId: PolygonId('polygon_${area.nombre}'),
+        points:
+            area.puntoarea.map((p) => LatLng(p.latitud, p.longitud)).toList(),
+        strokeColor: Colors.black,
+        strokeWidth: 3,
+        fillColor:
+            Color(int.parse('0xff${area.color.substring(1)}')).withOpacity(0.3),
+      );
+      _areaPolygons.add(polygon);
+    }
+    setState(() {}); // Actualizar el mapa con los nuevos marcadores y polígonos
   }
-  setState(() {});  // Actualizar el mapa con los nuevos marcadores y polígonos
-}
 
   Future<void> _loadLineasTeleferico() async {
     _firebaseController.getLineasTelefericos().listen((lineas) {
@@ -448,12 +503,11 @@ class _HomeViewState extends ConsumerState<HomeView> {
       setState(() {
         _areaMarkers.clear();
         _areaPolygons.clear();
-        _loadMarkersAndPolygons(lineas);  // Cargar marcadores y polígonos
+        _loadMarkersAndPolygons(lineas); // Cargar marcadores y polígonos
       });
       _showRegisteredAreasModal(context, lineas);
-  });
-
-}
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -463,7 +517,8 @@ class _HomeViewState extends ConsumerState<HomeView> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         centerTitle: true,
-        title: Image.asset('assets/pngs/LOGO_COMPLETO_BLANCO-01.png',
+        title: Image.asset(
+          'assets/pngs/LOGO_COMPLETO_BLANCO-01.png',
           height: 140,
         ),
         leading: IconButton(
@@ -473,7 +528,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
           ),
           onPressed: () {
             // Navigate to user profile view
-            Navigator.push(context,UserProfileView.route(),);
+            Navigator.push(
+              context,
+              UserProfileView.route(),
+            );
           },
         ),
         actions: [
@@ -515,12 +573,13 @@ class _HomeViewState extends ConsumerState<HomeView> {
               _googleMapController = controller;
               _updateMapStyle();
             },
-            markers: Set<Marker>.from(_areaMarkers),  // Muestra todos los marcadores de áreas de cultivo
+            markers: Set<Marker>.from(
+                _areaMarkers), // Muestra todos los marcadores de áreas de cultivo
             polygons: Set<Polygon>.from(_areaPolygons),
-            onTap: (LatLng position) {
-              _showOriginDestinationBottomSheet(position);
-            },
-            
+            // Elimina el onTap general que podría estar interfiriendo:
+            // onTap: (LatLng position) {
+            //   _showOriginDestinationBottomSheet(position);
+            // },
           ),
           if (_isLoading)
             Center(
@@ -531,7 +590,8 @@ class _HomeViewState extends ConsumerState<HomeView> {
             left: 0,
             right: 0,
             child: GestureDetector(
-              onTap: () => _showOriginDestinationBottomSheet(_currentPosition),
+              onTap: () => _showRegisteredAreasModal(
+                  context, []), // Muestra las áreas registradas
               child: Container(
                 decoration: BoxDecoration(
                   color: _isDarkMode
@@ -572,18 +632,15 @@ class _HomeViewState extends ConsumerState<HomeView> {
                       ),
                     ],
                     currentIndex: _selectedIndex,
-                  
                     selectedItemColor: const Color(0xFF025940),
-                    // Asigna el color 071D26 a los ítems no seleccionados
                     unselectedItemColor: Colors.white,
                     onTap: (index) {
                       setState(() {
                         _selectedIndex = index;
                       });
-                     if (index == 0) {
-                        _loadLineasTeleferico();  // Show areas when "Tierras" is tapped
+                      if (index == 0) {
+                        _loadLineasTeleferico(); // Mostrar áreas cuando se selecciona "Tierras"
                       }
-                      
                     },
                     backgroundColor: Colors.transparent,
                     elevation: 0,
