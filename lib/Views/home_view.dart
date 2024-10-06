@@ -470,6 +470,69 @@ class _HomeViewState extends ConsumerState<HomeView> {
   }
 
   //para mostrar las areas de cultivo
+  void _showRegisteredAreasModal(BuildContext context, List<AreaCultivo> areas) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Tierras Registradas',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: areas.length,
+                  itemBuilder: (context, index) {
+                    final area = areas[index];
+                    return ListTile(
+                      title: Text(area.nombre),  // Nombre de la tierra
+                      subtitle: Row(
+                        children: [
+                          // Mostrar un contenedor con el color
+                          Container(
+                            width: 20,   // Ancho del cuadrado de color
+                            height: 20,  // Alto del cuadrado de color
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,  // Hacerlo circular
+                              color: Color(int.parse('0xff${area.color.substring(1)}')),  // Convertir el código de color
+                            ),
+                          ),
+                          SizedBox(width: 8),  // Espacio entre el color y el texto
+                          Text('Color: ${area.color}'),  // Mostrar el valor del color como texto
+                        ],
+                      ),
+                      trailing: Icon(Icons.arrow_forward),
+                      onTap: () {
+                        // Aquí puedes agregar alguna acción cuando se selecciona una tierra
+                      },
+                    );
+                  },
+                ),
+
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);  // Cerrar el modal
+                  },
+                  child: Text('Cerrar'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
     final svgString = await rootBundle.loadString('assets/svgs/TelefericoIcon.svg');
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
@@ -538,6 +601,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
         _areaPolygons.clear();
         _loadMarkersAndPolygons(lineas);  // Cargar marcadores y polígonos
       });
+      _showRegisteredAreasModal(context, lineas);
   });
 
 }
