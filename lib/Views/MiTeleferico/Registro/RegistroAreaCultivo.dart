@@ -1,5 +1,4 @@
 import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gmaps/.env.dart';
@@ -11,7 +10,9 @@ import 'package:flutter_gmaps/Controllers/MiTeleferico/AreaCultivoController.dar
 import 'package:flutter_gmaps/models/AreaCultivo/AreaCultivo.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:uuid/uuid.dart'; // Añadir esta importación para generar IDs únicos
+import 'package:uuid/uuid.dart';
+
+import '../../Prediccion/PredictionPage.dart'; // Añadir esta importación para generar IDs únicos
 
 class RegistroLineaScreen extends StatefulWidget {
   @override
@@ -21,14 +22,13 @@ class RegistroLineaScreen extends StatefulWidget {
 class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
   final List<Marker> _newMarkers = [];
   final List<LatLng> _stations = [];
-  final List<String> _stationNames = [];
-  final List<String> _locationNames = [];
- final List<Polygon> _newPolygons = [];
+  final List<Polygon> _newPolygons = [];
   GoogleMapController? _mapController;
   String _selectedColorName = '';
   Color _selectedColor = Colors.black;
   bool _colorSelected = false;
   TextEditingController _lineNameController = TextEditingController();
+  TextEditingController _cultivoController = TextEditingController(); // Controlador para el cultivo
   final AreaCultivoController _firebaseController = AreaCultivoController();
   List<AreaCultivo> _areasCultivo = [];
 
@@ -56,37 +56,65 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
     _mapController = controller;
     _loadMarkersAndPolygons();
   }
+ Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
+    final svgString = await rootBundle.loadString('assets/svgs/TelefericoIcon.svg');
+    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(pictureRecorder);
+    const double size = 130.0;
 
+    final Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final Paint borderPaint = Paint()
+      ..color = const ui.Color.fromARGB(255, 97, 97, 97)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5;
+
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2, paint);
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2, borderPaint);
+
+    final DrawableRoot svgDrawableRoot = await svg.fromSvgString(svgString, svgString);
+    svgDrawableRoot.scaleCanvasToViewBox(canvas, Size(size, size));
+    svgDrawableRoot.clipCanvasToViewBox(canvas);
+    svgDrawableRoot.draw(canvas, Rect.fromLTWH(0, 0, size, size));
+
+    final picture = pictureRecorder.endRecording();
+    final img = await picture.toImage(size.toInt(), size.toInt());
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+    final uint8List = byteData!.buffer.asUint8List();
+
+    return BitmapDescriptor.fromBytes(uint8List);
+  }
   Future<void> _loadMarkersAndPolygons() async {
-  _newMarkers.clear();
-  _newPolygons.clear();
+    _newMarkers.clear();
+    _newPolygons.clear();
 
-  for (var linea in _areasCultivo) {
-    // Crear los markers
-    for (var puntoarea in linea.puntoarea) {
-      final markerIcon = await _createCustomMarkerBitmap(Color(int.parse('0xff${linea.color.substring(1)}')));
+    for (var linea in _areasCultivo) {
+      // Crear los markers
+      for (var puntoarea in linea.puntoarea) {
+        final markerIcon = await _createCustomMarkerBitmap(Color(int.parse('0xff${linea.color.substring(1)}')));
 
-      final marker = Marker(
-        markerId: MarkerId('${puntoarea.latitud},${puntoarea.longitud}'),
-        position: LatLng(puntoarea.latitud, puntoarea.longitud),
-        icon: markerIcon,
+        final marker = Marker(
+          markerId: MarkerId('${puntoarea.latitud},${puntoarea.longitud}'),
+          position: LatLng(puntoarea.latitud, puntoarea.longitud),
+          icon: markerIcon,
+        );
+        _newMarkers.add(marker);
+      }
+
+      // Crear el polígono
+      final polygon = Polygon(
+        polygonId: PolygonId('polygon_${linea.nombre}'),
+        points: linea.puntoarea.map((punto) => LatLng(punto.latitud, punto.longitud)).toList(),
+        strokeColor: Colors.black,
+        strokeWidth: 3,
+        fillColor: Color(int.parse('0xff${linea.color.substring(1)}')).withOpacity(0.3),
       );
-      _newMarkers.add(marker);
+      _newPolygons.add(polygon);
     }
 
-    // Crear el polígono
-    final polygon = Polygon(
-      polygonId: PolygonId('polygon_${linea.nombre}'),
-      points: linea.puntoarea.map((punto) => LatLng(punto.latitud, punto.longitud)).toList(),
-      strokeColor: Colors.black,
-      strokeWidth: 3,
-      fillColor: Color(int.parse('0xff${linea.color.substring(1)}')).withOpacity(0.3),
-    );
-    _newPolygons.add(polygon);
+    setState(() {});
   }
-
-  setState(() {});
-}
 
   Future<String> _getGooglePlaceName(LatLng pos) async {
     final url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=${pos.latitude},${pos.longitude}&key=$googleAPIKey';
@@ -119,105 +147,8 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
       _updatePolygon();
     });
   }
-  
 
-  void _editStation(LatLng pos, String currentName, String currentLocation) {
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-          title: Text('Editar Estación'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  final index = _stations.indexOf(pos);
-                  if (index != -1) {
-                   
-
-                    final updatedMarker = Marker(
-                      markerId: MarkerId(pos.toString()),
-                      position: pos,
-                      
-                      icon: _newMarkers[index].icon,
-                      
-                    );
-
-                    _newMarkers[index] = updatedMarker;
-                    _updatePolygon();
-                  }
-                });
-                Navigator.of(context).pop();
-              },
-              child: Text('Guardar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  final index = _stations.indexOf(pos);
-                  if (index != -1) {
-                    _stations.removeAt(index);
-                
-                    _newMarkers.removeAt(index);
-                    _updatePolygon();
-                  }
-                });
-                Navigator.of(context).pop();
-              },
-              child: Text('Eliminar'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
-    final svgString = await rootBundle.loadString('assets/svgs/TelefericoIcon.svg');
-    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
-    final Canvas canvas = Canvas(pictureRecorder);
-    const double size = 130.0;
-
-    final Paint paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    final Paint borderPaint = Paint()
-      ..color = const ui.Color.fromARGB(255, 97, 97, 97)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5;
-
-    canvas.drawCircle(Offset(size / 2, size / 2), size / 2, paint);
-    canvas.drawCircle(Offset(size / 2, size / 2), size / 2, borderPaint);
-
-    final DrawableRoot svgDrawableRoot = await svg.fromSvgString(svgString, svgString);
-    svgDrawableRoot.scaleCanvasToViewBox(canvas, Size(size, size));
-    svgDrawableRoot.clipCanvasToViewBox(canvas);
-    svgDrawableRoot.draw(canvas, Rect.fromLTWH(0, 0, size, size));
-
-    final picture = pictureRecorder.endRecording();
-    final img = await picture.toImage(size.toInt(), size.toInt());
-    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-    final uint8List = byteData!.buffer.asUint8List();
-
-    return BitmapDescriptor.fromBytes(uint8List);
-  }
-
-  void _saveLinea() async {
+ void _saveLinea() {
   if (_selectedColorName.isNotEmpty && _stations.isNotEmpty) {
     final puntosarea = _stations.asMap().entries.map((entry) {
       final index = entry.key;
@@ -234,33 +165,39 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
       );
     }).toList();
 
-    // Generar un ID único para la nueva línea
-    final String lineaId = Uuid().v4();
+    // Calcular el centro del polígono
+    LatLng centro = _calcularCentroPoligono(_stations);
 
-    final linea = AreaCultivo(
-      id: lineaId,  // Usar el ID generado para la línea
-      nombre: _selectedColorName,
-      color: '#${_selectedColor.value.toRadixString(16).substring(2)}',  // Color en formato hexadecimal
-      puntoarea: puntosarea,  // Asignar la lista de puntos de área
+    // Redirigir a la pantalla de predicción y pasar los datos necesarios
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PredictionPage(
+          latitude: centro.latitude, 
+          longitude: centro.longitude, 
+          puntosarea: puntosarea,  // Pasamos los puntos del área
+          color:'#${_selectedColor.value.toRadixString(16).substring(2)}',  // Pasamos el nombre del color seleccionado
+          nombre:         _selectedColorName,
+
+        ),
+      ),
     );
-
-    // Guardar la línea en Firestore
-    await _firebaseController.saveLineaTeleferico(linea);
-
-    setState(() {
-      _newMarkers.clear();
-      _newPolygons.clear();
-      _stations.clear();
-      _stationNames.clear();
-      _locationNames.clear();
-      _lineNameController.clear();
-      _colorSelected = false;
-    });
-
-    // Recargar la lista de líneas
-    _loadLineasTeleferico();
   }
 }
+
+
+  // Función para calcular el centro de un polígono
+  LatLng _calcularCentroPoligono(List<LatLng> puntos) {
+    double sumaLat = 0;
+    double sumaLng = 0;
+
+    for (var punto in puntos) {
+      sumaLat += punto.latitude;
+      sumaLng += punto.longitude;
+    }
+
+    return LatLng(sumaLat / puntos.length, sumaLng / puntos.length);
+  }
 
   void _selectColorAndName() {
     showModalBottomSheet(
@@ -278,6 +215,11 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
                   TextField(
                     controller: _lineNameController,
                     decoration: InputDecoration(labelText: 'Nombre del Area del cultivo'),
+                  ),
+                  SizedBox(height: 10),
+                  TextField(
+                    controller: _cultivoController,
+                    decoration: InputDecoration(labelText: 'Tipo de Cultivo'),
                   ),
                   SizedBox(height: 10),
                   Text('Seleccionar Color del Area', style: TextStyle(fontSize: 16)),
@@ -389,6 +331,7 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
       },
     );
   }
+
   void _updatePolygon() {
     _newPolygons.clear(); // Limpiar los polígonos anteriores
 
@@ -405,8 +348,6 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
 
     setState(() {}); // Actualizar el estado para reflejar los cambios
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -435,6 +376,8 @@ class _RegistroLineaScreenState extends State<RegistroLineaScreen> {
               controller: _lineNameController,
               decoration: InputDecoration(labelText: 'Nombre del Area de Cultivo'),
             ),
+            
+            
             SizedBox(height: 10),
             Text('Seleccionar color del Area', style: TextStyle(fontSize: 16)),
             SizedBox(height: 10),

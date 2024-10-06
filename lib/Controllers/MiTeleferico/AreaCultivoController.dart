@@ -40,19 +40,19 @@ class AreaCultivoController {
         // Mapeo de los puntos de área (PuntoArea) incluyendo el 'id'
         final puntosarea = (data['puntoarea'] as List)
             .map((e) => PuntoArea(
-                  id: e['id'], // Ahora estamos incluyendo el 'id' del PuntoArea
+                  id: e['id'],
                   longitud: e['longitud'],
                   latitud: e['latitud'],
                   orden: e['orden'],
                 ))
             .toList();
 
-        // Retornar el objeto AreaCultivo con la lista de PuntoArea
+        // Manejo del campo cultivo en caso de que no esté presente en los datos
         return AreaCultivo(
-          id: doc.id, // Usar el ID del documento de Firestore
-          nombre: data['nombre'],
-          color: data['color'],
-
+          id: doc.id,
+          nombre: data['nombre'] ?? 'Sin nombre',  // Valor por defecto
+          color: data['color'] ?? 'Desconocido',  // Valor por defecto
+          cultivo: data['cultivo'] ?? 'Sin cultivo',  // Si no tiene 'cultivo'
           puntoarea: puntosarea,
         );
       }).toList();

@@ -2,6 +2,7 @@ class AreaCultivo {
   String id;
   String nombre;
   String color;
+  String cultivo;  // Nuevo campo para almacenar el tipo de cultivo
 
   List<PuntoArea> puntoarea;
 
@@ -9,6 +10,7 @@ class AreaCultivo {
     required this.id,
     required this.nombre,
     required this.color,
+    required this.cultivo, // El cultivo también es requerido ahora
     required this.puntoarea,
   });
 
@@ -16,7 +18,7 @@ class AreaCultivo {
     return {
       'nombre': nombre,
       'color': color,
-    
+      'cultivo': cultivo,  // Se agrega el campo cultivo al map
       'puntoarea': puntoarea.map((e) => e.toMap()).toList(),
     };
   }
@@ -27,6 +29,7 @@ class PuntoArea {
   double longitud;
   double latitud;
   int orden;
+
   PuntoArea({
     required this.id,
     required this.longitud,
