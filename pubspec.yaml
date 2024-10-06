@@ -39,6 +39,7 @@ dependencies:
   google_place: ^0.4.7
   libphonenumber_plugin: ^0.3.3
   bitmap: ^0.2.0
+  latlong2: ^0.9.1
 dev_dependencies:
   flutter_launcher_icons: ^0.9.2
   flutter_test:
