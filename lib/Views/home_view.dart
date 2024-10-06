@@ -520,15 +520,15 @@ class _HomeViewState extends ConsumerState<HomeView> {
                 child: BottomNavigationBar(
                   items: const <BottomNavigationBarItem>[
                     BottomNavigationBarItem(
-                      icon: Icon(Icons.cable),
+                      icon: Icon(Icons.terrain),
                       label: 'Tierras',
                     ),
                     BottomNavigationBarItem(
-                      icon: Icon(Icons.local_taxi),
+                      icon: Icon(Icons.grass),
                       label: 'Cultivos',
                     ),
                     BottomNavigationBarItem(
-                      icon: Icon(Icons.local_taxi),
+                      icon: Icon(Icons.nearby_error),
                       label: 'Informacion',
                     ),
                   ],
@@ -611,10 +611,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
 }
 
   Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
-    final svgString = await rootBundle.loadString('assets/svgs/TelefericoIcon.svg');
+    final svgString = await rootBundle.loadString('assets/svgs/radio_button_unchecked.svg');
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
-    const double size = 130.0;
+    const double size = 50.0;
 
     final Paint paint = Paint()
       ..color = color
@@ -787,15 +787,15 @@ class _HomeViewState extends ConsumerState<HomeView> {
                   child: BottomNavigationBar(
                     items: const <BottomNavigationBarItem>[
                       BottomNavigationBarItem(
-                        icon: Icon(Icons.cable),
+                        icon: Icon(Icons.terrain),
                         label: 'Tierras',
                       ),
                       BottomNavigationBarItem(
-                        icon: Icon(Icons.local_taxi),
+                        icon: Icon(Icons.grass),
                         label: 'Cultivos',
                       ),
                       BottomNavigationBarItem(
-                        icon: Icon(Icons.local_taxi),
+                        icon: Icon(Icons.nearby_error),
                         label: 'Informacion',
                       ),
                     ],
