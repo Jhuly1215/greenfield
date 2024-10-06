@@ -140,7 +140,10 @@ final AreaCultivoController areaController = AreaCultivoController();
           content: Text('El cultivo seleccionado tiene una probabilidad de éxito inferior al 50%. Toma precauciones antes de continuar.'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => {Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (context) => ListLineasTelefericoScreen()),  // Ajusta con tu pantalla de HomePage
+  )},
               child: Text('Aceptar'),
             ),
           ],
@@ -158,10 +161,7 @@ final AreaCultivoController areaController = AreaCultivoController();
   await _saveAreaWithCultivo(cultivo);
 
   // Navegar a la pantalla de HomePage después de guardar
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (context) => ListLineasTelefericoScreen()),  // Ajusta con tu pantalla de HomePage
-  );
+  
 }
 
 Future<void> _saveAreaWithCultivo(String cultivo) async {
