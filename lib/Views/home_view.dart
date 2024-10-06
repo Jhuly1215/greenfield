@@ -20,6 +20,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:ui' as ui;
 import 'package:intl/intl.dart';
 
+
 class HomeView extends ConsumerStatefulWidget {
   final VoidCallback toggleTheme;
   final bool isDarkMode;
@@ -84,17 +85,17 @@ class _HomeViewState extends ConsumerState<HomeView> {
   }
 
   // Fetch NASA data and make predictions for the selected area
-Future<void> _makePredictionsForArea(
-    double latitude, double longitude, StateSetter modalSetState) async {
-  // Start loading state for both predictions
-  modalSetState(() {
-    isLoadingDroughtPrediction = true;
-    isLoadingFloodPrediction = true;
-  });
+  Future<void> _makePredictionsForArea(
+      double latitude, double longitude) async {
+    // Start loading state for both predictions
+    setState(() {
+      isLoadingDroughtPrediction = true;
+      isLoadingFloodPrediction = true;
+    });
 
-  await makeDroughtPrediction(latitude, longitude, modalSetState);
-  await makeFloodPrediction(latitude, longitude, modalSetState);
-}
+    await makeDroughtPrediction(latitude, longitude);
+    await makeFloodPrediction(latitude, longitude);
+  }
 
   Future<Map<String, dynamic>> fetchNasaData(
       double latitude, double longitude) async {
@@ -114,142 +115,101 @@ Future<void> _makePredictionsForArea(
     }
   }
 
+  Future<void> makeDroughtPrediction(double latitude, double longitude) async {
+    try {
+      Map<String, dynamic> nasaData = await fetchNasaData(latitude, longitude);
 
-Future<void> makeDroughtPrediction(double latitude, double longitude, StateSetter modalSetState) async {
-  try {
-    Map<String, dynamic> nasaData = await fetchNasaData(latitude, longitude);
+      var parameterData = nasaData['properties']['parameter'];
+      var precipitationData = parameterData['PRECTOTCORR'] ?? {};
+      var temperatureData = parameterData['T2M'] ?? {};
+      var humidityData = parameterData['QV2M'] ?? {};
 
-    var parameterData = nasaData['properties']['parameter'];
-    var precipitationData = parameterData['PRECTOTCORR'] ?? {};
-    var temperatureData = parameterData['T2M'] ?? {};
-    var humidityData = parameterData['QV2M'] ?? {};
-    var pressureData = parameterData['PS'] ?? {};
-    var wind10mData = parameterData['WS10M'] ?? {};
-    var wind50mData = parameterData['WS50M'] ?? {};
+      double avgPrecipitation = precipitationData.isNotEmpty
+          ? precipitationData.values.reduce((a, b) => a + b) /
+              precipitationData.length
+          : 0.0;
+      double avgTemp = temperatureData.isNotEmpty
+          ? temperatureData.values.reduce((a, b) => a + b) /
+              temperatureData.length
+          : 0.0;
+      double avgHumidity = humidityData.isNotEmpty
+          ? humidityData.values.reduce((a, b) => a + b) / humidityData.length
+          : 0.0;
 
-    double avgPrecipitation = precipitationData.isNotEmpty
-        ? precipitationData.values.reduce((a, b) => a + b) /
-            precipitationData.length
-        : 0.0;
-    double avgTemp = temperatureData.isNotEmpty
-        ? temperatureData.values.reduce((a, b) => a + b) /
-            temperatureData.length
-        : 0.0;
-    double avgHumidity = humidityData.isNotEmpty
-        ? humidityData.values.reduce((a, b) => a + b) / humidityData.length
-        : 0.0;
-    double avgPressure = pressureData.isNotEmpty
-        ? pressureData.values.reduce((a, b) => a + b) / pressureData.length
-        : 0.0;
-    double avgWind10m = wind10mData.isNotEmpty
-        ? wind10mData.values.reduce((a, b) => a + b) / wind10mData.length
-        : 0.0;
-    double avgWind50m = wind50mData.isNotEmpty
-        ? wind50mData.values.reduce((a, b) => a + b) / wind50mData.length
-        : 0.0;
+      List<int> droughtData = [
+        avgPrecipitation.round(),
+        avgTemp.round(),
+        avgHumidity.round(),
+      ];
 
-    double t2mdew = avgTemp - ((100 - avgHumidity) / 5);
-    double t2mwet = avgTemp - 2;
-    double t2m_max = avgTemp + 5;
-    double t2m_min = avgTemp - 5;
-    double t2m_range = t2m_max - t2m_min;
-    double ws10m_max = avgWind10m + 2;
-    double ws10m_min = avgWind10m - 2;
-    double ws10m_range = ws10m_max - ws10m_min;
-    double ws50m_max = avgWind50m + 3;
-    double ws50m_min = avgWind50m - 3;
-    double ws50m_range = ws50m_max - ws50m_min;
+      final url = Uri.parse('http://172.172.12.7:5000/predecirDrought');
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({'input': droughtData}),
+      );
 
-    List<int> droughtData = [
-      avgPrecipitation.round(),
-      avgPressure.round(),
-      avgHumidity.round(),
-      avgTemp.round(),
-      t2mdew.round(),
-      t2mwet.round(),
-      t2m_max.round(),
-      t2m_min.round(),
-      t2m_range.round(),
-      avgTemp.round(),
-      avgWind10m.round(),
-      ws10m_max.round(),
-      ws10m_min.round(),
-      ws10m_range.round(),
-      avgWind50m.round(),
-      ws50m_max.round(),
-      ws50m_min.round(),
-      ws50m_range.round()
-    ];
-
-    final url = Uri.parse('http://172.172.12.7:5000/predecirDrought');
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: json.encode({'input': droughtData}),
-    );
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      modalSetState(() {
-        droughtPredictionResult = data['prediction'].toString();
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          droughtPredictionResult = data['prediction'].toString();
+        });
+      }
+    } catch (e) {
+      print("Error en la predicción de sequía: $e");
+    } finally {
+      setState(() {
+        isLoadingDroughtPrediction = false;
       });
     }
-  } catch (e) {
-    print("Error en la predicción de sequía: $e");
-  } finally {
-    modalSetState(() {
-      isLoadingDroughtPrediction = false;
-    });
   }
-}
 
-Future<void> makeFloodPrediction(double latitude, double longitude, StateSetter modalSetState) async {
-  try {
-    DateTime now = DateTime.now();
-    List<double> monthlyAverages = [];
+  Future<void> makeFloodPrediction(double latitude, double longitude) async {
+    try {
+      DateTime now = DateTime.now();
+      List<double> monthlyAverages = [];
 
-    for (int i = 0; i < 12; i++) {
-      DateTime endDate = DateTime(now.year, now.month - i, 0);
-      DateTime startDate = DateTime(endDate.year, endDate.month, 1);
-      String startDateStr = DateFormat('yyyyMMdd').format(startDate);
-      String endDateStr = DateFormat('yyyyMMdd').format(endDate);
+      for (int i = 0; i < 12; i++) {
+        DateTime endDate = DateTime(now.year, now.month - i, 0);
+        DateTime startDate = DateTime(endDate.year, endDate.month, 1);
+        String startDateStr = DateFormat('yyyyMMdd').format(startDate);
+        String endDateStr = DateFormat('yyyyMMdd').format(endDate);
 
-      Map<String, dynamic> precipitationData =
-          await fetchNasaData(latitude, longitude);
-      var precipitationValues =
-          precipitationData['properties']['parameter']['PRECTOTCORR'] ?? {};
+        Map<String, dynamic> precipitationData =
+            await fetchNasaData(latitude, longitude);
+        var precipitationValues =
+            precipitationData['properties']['parameter']['PRECTOTCORR'] ?? {};
 
-      double monthlyTotal = precipitationValues.isNotEmpty
-          ? precipitationValues.values.reduce((a, b) => a + b)
-          : 0.0;
-      double monthlyAverage = precipitationValues.isNotEmpty
-          ? monthlyTotal / precipitationValues.length
-          : 0.0;
-      monthlyAverages.insert(0, monthlyAverage);
-    }
+        double monthlyTotal = precipitationValues.isNotEmpty
+            ? precipitationValues.values.reduce((a, b) => a + b)
+            : 0.0;
+        double monthlyAverage = precipitationValues.isNotEmpty
+            ? monthlyTotal / precipitationValues.length
+            : 0.0;
+        monthlyAverages.insert(0, monthlyAverage);
+      }
 
-    final url = Uri.parse('http://172.172.12.7:5000/predecirFlood');
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: json.encode({'input': monthlyAverages}),
-    );
+      final url = Uri.parse('http://172.172.12.7:5000/predecirFlood');
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({'input': monthlyAverages}),
+      );
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      modalSetState(() {
-        floodPredictionResult = data['prediction'].toString();
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          floodPredictionResult = data['prediction'].toString();
+        });
+      }
+    } catch (e) {
+      print("Error en la predicción de inundación: $e");
+    } finally {
+      setState(() {
+        isLoadingFloodPrediction = false;
       });
     }
-  } catch (e) {
-    print("Error en la predicción de inundación: $e");
-  } finally {
-    modalSetState(() {
-      isLoadingFloodPrediction = false;
-    });
   }
-}
-
 
   Future<void> _requestLocationPermission() async {
     bool serviceEnabled;
@@ -355,15 +315,14 @@ Future<void> makeFloodPrediction(double latitude, double longitude, StateSetter 
         areaSize / 10000; // Convertir metros cuadrados a hectáreas
 
     _makePredictionsForArea(area.puntoarea.first.latitud,
-        area.puntoarea.first.longitud); // Iniciar las predicciones
+        area.puntoarea.first.longitud); // Trigger predictions
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (context) {
         return StatefulBuilder(
-          builder: (BuildContext context, StateSetter modalSetState) {
-            // Usar modalSetState para actualizar dentro del StatefulBuilder
+          builder: (BuildContext context, StateSetter setState) {
             return Padding(
               padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -415,7 +374,7 @@ Future<void> makeFloodPrediction(double latitude, double longitude, StateSetter 
                           ),
                           SizedBox(height: 20),
 
-                          // Mostrar predicciones con spinners de carga
+                          // Mostrar predicciones
                           _buildPredictionSection(
                             title: 'Predicción de Inundación',
                             isLoading: isLoadingFloodPrediction,
@@ -424,8 +383,6 @@ Future<void> makeFloodPrediction(double latitude, double longitude, StateSetter 
                                     ? 'Riesgo de Inundación'
                                     : 'Sin riesgo de Inundación')
                                 : 'No se obtuvo ninguna predicción de inundación',
-                            modalSetState:
-                                modalSetState, // Pasar el modalSetState
                           ),
                           SizedBox(height: 20),
                           _buildPredictionSection(
@@ -434,8 +391,6 @@ Future<void> makeFloodPrediction(double latitude, double longitude, StateSetter 
                             result: droughtPredictionResult.isNotEmpty
                                 ? 'Nivel $droughtPredictionResult'
                                 : 'No se obtuvo ninguna predicción de sequía',
-                            modalSetState:
-                                modalSetState, // Pasar el modalSetState
                           ),
                         ],
                       ),
@@ -665,7 +620,6 @@ Future<void> makeFloodPrediction(double latitude, double longitude, StateSetter 
     required String title,
     required bool isLoading,
     required String result,
-    required StateSetter modalSetState, // Añadir modalSetState aquí
   }) {
     return Column(
       children: [
