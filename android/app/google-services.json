@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "726249829127",
+    "project_id": "just-sunrise-427601-p4",
+    "storage_bucket": "just-sunrise-427601-p4.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:726249829127:android:1703ebe432019d267e8ba2",
+        "android_client_info": {
+          "package_name": "com.example.flutter_gmaps"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5jcerFNkUuz8t32BDvnjysPobj72Pb3s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

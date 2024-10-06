@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "greenfield" "\0"
+            VALUE "FileDescription", "eco_ruta" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "greenfield" "\0"
+            VALUE "InternalName", "eco_ruta" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2024 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "greenfield.exe" "\0"
-            VALUE "ProductName", "greenfield" "\0"
+            VALUE "OriginalFilename", "eco_ruta.exe" "\0"
+            VALUE "ProductName", "eco_ruta" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
