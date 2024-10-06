@@ -468,70 +468,147 @@ class _HomeViewState extends ConsumerState<HomeView> {
         ));
       }
   }
+  void _focusOnArea(AreaCultivo area) {
+    if (_googleMapController == null || area.puntoarea.isEmpty) return;
+
+    // Obtener los límites del área seleccionada
+    LatLngBounds bounds = _getBoundsForArea(area.puntoarea);
+
+    // Mover la cámara a la posición del área seleccionada
+    _googleMapController.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, 50),  // Ajustar el mapa a los límites del área
+    );
+  }
+
+  LatLngBounds _getBoundsForArea(List<PuntoArea> puntos) {
+    double southWestLat = puntos.first.latitud;
+    double southWestLng = puntos.first.longitud;
+    double northEastLat = puntos.first.latitud;
+    double northEastLng = puntos.first.longitud;
+
+    for (var punto in puntos) {
+      if (punto.latitud < southWestLat) southWestLat = punto.latitud;
+      if (punto.longitud < southWestLng) southWestLng = punto.longitud;
+      if (punto.latitud > northEastLat) northEastLat = punto.latitud;
+      if (punto.longitud > northEastLng) northEastLng = punto.longitud;
+    }
+
+    return LatLngBounds(
+      southwest: LatLng(southWestLat, southWestLng),
+      northeast: LatLng(northEastLat, northEastLng),
+    );
+  }
 
   //para mostrar las areas de cultivo
   void _showRegisteredAreasModal(BuildContext context, List<AreaCultivo> areas) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    'Tierras Registradas',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Añadir el BottomNavigationBar en la parte superior del modal
+              ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
                 ),
-                ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: areas.length,
-                  itemBuilder: (context, index) {
-                    final area = areas[index];
-                    return ListTile(
-                      title: Text(area.nombre),  // Nombre de la tierra
-                      subtitle: Row(
-                        children: [
-                          // Mostrar un contenedor con el color
-                          Container(
-                            width: 20,   // Ancho del cuadrado de color
-                            height: 20,  // Alto del cuadrado de color
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,  // Hacerlo circular
-                              color: Color(int.parse('0xff${area.color.substring(1)}')),  // Convertir el código de color
-                            ),
+                child: BottomNavigationBar(
+                  items: const <BottomNavigationBarItem>[
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.cable),
+                      label: 'Tierras',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.local_taxi),
+                      label: 'Cultivos',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.local_taxi),
+                      label: 'Informacion',
+                    ),
+                  ],
+                  currentIndex: _selectedIndex,
+                  selectedItemColor: const Color(0xFF025940),
+                  unselectedItemColor: Colors.white,
+                  onTap: (index) {
+                    setState(() {
+                      _selectedIndex = index;
+                    });
+                    Navigator.pop(context);  // Cerrar el modal para abrir la nueva vista según la selección
+                    if (index == 0) {
+                      _loadLineasTeleferico();  // Volver a mostrar tierras registradas
+                    } else if (index == 1) {
+                      // Aquí puedes implementar la acción para "Cultivos"
+                    } else if (index == 2) {
+                      // Aquí puedes implementar la acción para "Información"
+                    }
+                  },
+                  backgroundColor: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
+                  elevation: 0,
+                ),
+              ),
+              
+              // Título del modal
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Tierras Registradas',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
+              
+              // ListView de áreas registradas
+              ListView.builder(
+                shrinkWrap: true,
+                itemCount: areas.length,
+                itemBuilder: (context, index) {
+                  final area = areas[index];
+                  return ListTile(
+                    title: Text(area.nombre),  // Nombre de la tierra
+                    subtitle: Row(
+                      children: [
+                        // Mostrar un contenedor con el color
+                        Container(
+                          width: 20,   // Ancho del círculo de color
+                          height: 20,  // Alto del círculo de color
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,  // Hacerlo circular
+                            color: Color(int.parse('0xff${area.color.substring(1)}')),  // Convertir el código de color
                           ),
-                          SizedBox(width: 8),  // Espacio entre el color y el texto
-                          Text('Color: ${area.color}'),  // Mostrar el valor del color como texto
-                        ],
-                      ),
-                      trailing: Icon(Icons.arrow_forward),
-                      onTap: () {
-                        // Aquí puedes agregar alguna acción cuando se selecciona una tierra
-                      },
-                    );
-                  },
-                ),
-
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);  // Cerrar el modal
-                  },
-                  child: Text('Cerrar'),
-                ),
-              ],
-            ),
+                        ),
+                        SizedBox(width: 8),  // Espacio entre el color y el texto
+                        Text('Color: ${area.color}'),  // Mostrar el valor del color como texto
+                      ],
+                    ),
+                    trailing: Icon(Icons.arrow_forward),
+                    onTap: () {
+                      _focusOnArea(area);  // Llamar a la función para enfocar la cámara en el área seleccionada
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+              
+              SizedBox(height: 20),
+              
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);  // Cerrar el modal
+                },
+                child: Text('Cerrar'),
+              ),
+            ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   Future<BitmapDescriptor> _createCustomMarkerBitmap(Color color) async {
     final svgString = await rootBundle.loadString('assets/svgs/TelefericoIcon.svg');
