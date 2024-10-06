@@ -20,7 +20,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:ui' as ui;
 import 'package:intl/intl.dart';
 
-
 class HomeView extends ConsumerStatefulWidget {
   final VoidCallback toggleTheme;
   final bool isDarkMode;
@@ -55,7 +54,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
   String floodPredictionResult = "";
   bool isLoadingDroughtPrediction = false;
   bool isLoadingFloodPrediction = false;
-
   List<Marker> _areaMarkers = [];
   List<Polygon> _areaPolygons = [];
   final AreaCultivoController _firebaseController = AreaCultivoController();
@@ -116,6 +114,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
   }
 
   Future<void> makeDroughtPrediction(double latitude, double longitude) async {
+    setState(() {
+      isLoadingDroughtPrediction = true;
+    });
     try {
       Map<String, dynamic> nasaData = await fetchNasaData(latitude, longitude);
 
@@ -123,6 +124,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
       var precipitationData = parameterData['PRECTOTCORR'] ?? {};
       var temperatureData = parameterData['T2M'] ?? {};
       var humidityData = parameterData['QV2M'] ?? {};
+      var pressureData = parameterData['PS'] ?? {};
+      var wind10mData = parameterData['WS10M'] ?? {};
+      var wind50mData = parameterData['WS50M'] ?? {};
 
       double avgPrecipitation = precipitationData.isNotEmpty
           ? precipitationData.values.reduce((a, b) => a + b) /
@@ -135,11 +139,47 @@ class _HomeViewState extends ConsumerState<HomeView> {
       double avgHumidity = humidityData.isNotEmpty
           ? humidityData.values.reduce((a, b) => a + b) / humidityData.length
           : 0.0;
+      double avgPressure = pressureData.isNotEmpty
+          ? pressureData.values.reduce((a, b) => a + b) / pressureData.length
+          : 0.0;
+      double avgWind10m = wind10mData.isNotEmpty
+          ? wind10mData.values.reduce((a, b) => a + b) / wind10mData.length
+          : 0.0;
+      double avgWind50m = wind50mData.isNotEmpty
+          ? wind50mData.values.reduce((a, b) => a + b) / wind50mData.length
+          : 0.0;
+
+      double t2mdew = avgTemp - ((100 - avgHumidity) / 5);
+      double t2mwet = avgTemp - 2;
+      double t2m_max = avgTemp + 5;
+      double t2m_min = avgTemp - 5;
+      double t2m_range = t2m_max - t2m_min;
+      double ws10m_max = avgWind10m + 2;
+      double ws10m_min = avgWind10m - 2;
+      double ws10m_range = ws10m_max - ws10m_min;
+      double ws50m_max = avgWind50m + 3;
+      double ws50m_min = avgWind50m - 3;
+      double ws50m_range = ws50m_max - ws50m_min;
 
       List<int> droughtData = [
         avgPrecipitation.round(),
-        avgTemp.round(),
+        avgPressure.round(),
         avgHumidity.round(),
+        avgTemp.round(),
+        t2mdew.round(),
+        t2mwet.round(),
+        t2m_max.round(),
+        t2m_min.round(),
+        t2m_range.round(),
+        avgTemp.round(),
+        avgWind10m.round(),
+        ws10m_max.round(),
+        ws10m_min.round(),
+        ws10m_range.round(),
+        avgWind50m.round(),
+        ws50m_max.round(),
+        ws50m_min.round(),
+        ws50m_range.round()
       ];
 
       final url = Uri.parse('http://172.172.12.7:5000/predecirDrought');
@@ -165,6 +205,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
   }
 
   Future<void> makeFloodPrediction(double latitude, double longitude) async {
+    setState(() {
+      isLoadingFloodPrediction = true;
+    });
     try {
       DateTime now = DateTime.now();
       List<double> monthlyAverages = [];
@@ -172,6 +215,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
       for (int i = 0; i < 12; i++) {
         DateTime endDate = DateTime(now.year, now.month - i, 0);
         DateTime startDate = DateTime(endDate.year, endDate.month, 1);
+
         String startDateStr = DateFormat('yyyyMMdd').format(startDate);
         String endDateStr = DateFormat('yyyyMMdd').format(endDate);
 
@@ -186,6 +230,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
         double monthlyAverage = precipitationValues.isNotEmpty
             ? monthlyTotal / precipitationValues.length
             : 0.0;
+
         monthlyAverages.insert(0, monthlyAverage);
       }
 
@@ -615,7 +660,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
     });
   }
 
-  @override
   Widget _buildPredictionSection({
     required String title,
     required bool isLoading,
