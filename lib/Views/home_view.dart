@@ -18,6 +18,7 @@ import 'package:flutter_gmaps/models/AreaCultivo/AreaCultivo.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:ui' as ui;
+import 'package:intl/intl.dart';
 
 class HomeView extends ConsumerStatefulWidget {
   final VoidCallback toggleTheme;
@@ -49,6 +50,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
   int _selectedIndex = 0;
   bool _isLoading = false; // Variable para el loader
   Marker? _destinationMarker; // Variable para el marcador
+  String droughtPredictionResult = "";
+  String floodPredictionResult = "";
+  bool isLoadingDroughtPrediction = false;
+  bool isLoadingFloodPrediction = false;
 
   List<Marker> _areaMarkers = [];
   List<Polygon> _areaPolygons = [];
@@ -77,6 +82,174 @@ class _HomeViewState extends ConsumerState<HomeView> {
       _updateMapStyle();
     });
   }
+
+  // Fetch NASA data and make predictions for the selected area
+Future<void> _makePredictionsForArea(
+    double latitude, double longitude, StateSetter modalSetState) async {
+  // Start loading state for both predictions
+  modalSetState(() {
+    isLoadingDroughtPrediction = true;
+    isLoadingFloodPrediction = true;
+  });
+
+  await makeDroughtPrediction(latitude, longitude, modalSetState);
+  await makeFloodPrediction(latitude, longitude, modalSetState);
+}
+
+  Future<Map<String, dynamic>> fetchNasaData(
+      double latitude, double longitude) async {
+    final startDate = "20241002";
+    final endDate = "20241002";
+    final parameters = "PRECTOTCORR,PS,QV2M,T2M,WS10M,WS50M";
+    final nasaUrl = Uri.parse(
+        'https://power.larc.nasa.gov/api/temporal/hourly/point'
+        '?start=$startDate&end=$endDate&latitude=$latitude&longitude=$longitude'
+        '&community=ag&parameters=$parameters&format=json&time-standard=lst');
+
+    final response = await http.get(nasaUrl);
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Error al obtener datos de la API de la NASA');
+    }
+  }
+
+
+Future<void> makeDroughtPrediction(double latitude, double longitude, StateSetter modalSetState) async {
+  try {
+    Map<String, dynamic> nasaData = await fetchNasaData(latitude, longitude);
+
+    var parameterData = nasaData['properties']['parameter'];
+    var precipitationData = parameterData['PRECTOTCORR'] ?? {};
+    var temperatureData = parameterData['T2M'] ?? {};
+    var humidityData = parameterData['QV2M'] ?? {};
+    var pressureData = parameterData['PS'] ?? {};
+    var wind10mData = parameterData['WS10M'] ?? {};
+    var wind50mData = parameterData['WS50M'] ?? {};
+
+    double avgPrecipitation = precipitationData.isNotEmpty
+        ? precipitationData.values.reduce((a, b) => a + b) /
+            precipitationData.length
+        : 0.0;
+    double avgTemp = temperatureData.isNotEmpty
+        ? temperatureData.values.reduce((a, b) => a + b) /
+            temperatureData.length
+        : 0.0;
+    double avgHumidity = humidityData.isNotEmpty
+        ? humidityData.values.reduce((a, b) => a + b) / humidityData.length
+        : 0.0;
+    double avgPressure = pressureData.isNotEmpty
+        ? pressureData.values.reduce((a, b) => a + b) / pressureData.length
+        : 0.0;
+    double avgWind10m = wind10mData.isNotEmpty
+        ? wind10mData.values.reduce((a, b) => a + b) / wind10mData.length
+        : 0.0;
+    double avgWind50m = wind50mData.isNotEmpty
+        ? wind50mData.values.reduce((a, b) => a + b) / wind50mData.length
+        : 0.0;
+
+    double t2mdew = avgTemp - ((100 - avgHumidity) / 5);
+    double t2mwet = avgTemp - 2;
+    double t2m_max = avgTemp + 5;
+    double t2m_min = avgTemp - 5;
+    double t2m_range = t2m_max - t2m_min;
+    double ws10m_max = avgWind10m + 2;
+    double ws10m_min = avgWind10m - 2;
+    double ws10m_range = ws10m_max - ws10m_min;
+    double ws50m_max = avgWind50m + 3;
+    double ws50m_min = avgWind50m - 3;
+    double ws50m_range = ws50m_max - ws50m_min;
+
+    List<int> droughtData = [
+      avgPrecipitation.round(),
+      avgPressure.round(),
+      avgHumidity.round(),
+      avgTemp.round(),
+      t2mdew.round(),
+      t2mwet.round(),
+      t2m_max.round(),
+      t2m_min.round(),
+      t2m_range.round(),
+      avgTemp.round(),
+      avgWind10m.round(),
+      ws10m_max.round(),
+      ws10m_min.round(),
+      ws10m_range.round(),
+      avgWind50m.round(),
+      ws50m_max.round(),
+      ws50m_min.round(),
+      ws50m_range.round()
+    ];
+
+    final url = Uri.parse('http://172.172.12.7:5000/predecirDrought');
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: json.encode({'input': droughtData}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      modalSetState(() {
+        droughtPredictionResult = data['prediction'].toString();
+      });
+    }
+  } catch (e) {
+    print("Error en la predicción de sequía: $e");
+  } finally {
+    modalSetState(() {
+      isLoadingDroughtPrediction = false;
+    });
+  }
+}
+
+Future<void> makeFloodPrediction(double latitude, double longitude, StateSetter modalSetState) async {
+  try {
+    DateTime now = DateTime.now();
+    List<double> monthlyAverages = [];
+
+    for (int i = 0; i < 12; i++) {
+      DateTime endDate = DateTime(now.year, now.month - i, 0);
+      DateTime startDate = DateTime(endDate.year, endDate.month, 1);
+      String startDateStr = DateFormat('yyyyMMdd').format(startDate);
+      String endDateStr = DateFormat('yyyyMMdd').format(endDate);
+
+      Map<String, dynamic> precipitationData =
+          await fetchNasaData(latitude, longitude);
+      var precipitationValues =
+          precipitationData['properties']['parameter']['PRECTOTCORR'] ?? {};
+
+      double monthlyTotal = precipitationValues.isNotEmpty
+          ? precipitationValues.values.reduce((a, b) => a + b)
+          : 0.0;
+      double monthlyAverage = precipitationValues.isNotEmpty
+          ? monthlyTotal / precipitationValues.length
+          : 0.0;
+      monthlyAverages.insert(0, monthlyAverage);
+    }
+
+    final url = Uri.parse('http://172.172.12.7:5000/predecirFlood');
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: json.encode({'input': monthlyAverages}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      modalSetState(() {
+        floodPredictionResult = data['prediction'].toString();
+      });
+    }
+  } catch (e) {
+    print("Error en la predicción de inundación: $e");
+  } finally {
+    modalSetState(() {
+      isLoadingFloodPrediction = false;
+    });
+  }
+}
+
 
   Future<void> _requestLocationPermission() async {
     bool serviceEnabled;
@@ -132,31 +305,33 @@ class _HomeViewState extends ConsumerState<HomeView> {
       _updateMapStyle();
     });
   }
-double _calculateArea(List<PuntoArea> puntos) {
-  if (puntos.length < 3) return 0.0; // Un polígono necesita al menos 3 puntos
 
-  const double earthRadius = 6378137.0; // Radio de la Tierra en metros
-  double area = 0.0;
+  double _calculateArea(List<PuntoArea> puntos) {
+    if (puntos.length < 3) return 0.0; // Un polígono necesita al menos 3 puntos
 
-  for (int i = 0; i < puntos.length; i++) {
-    final punto1 = puntos[i];
-    final punto2 = puntos[(i + 1) % puntos.length]; // Para cerrar el polígono
+    const double earthRadius = 6378137.0; // Radio de la Tierra en metros
+    double area = 0.0;
 
-    final double x1 = _toRadians(punto1.longitud);
-    final double y1 = _toRadians(punto1.latitud);
-    final double x2 = _toRadians(punto2.longitud);
-    final double y2 = _toRadians(punto2.latitud);
+    for (int i = 0; i < puntos.length; i++) {
+      final punto1 = puntos[i];
+      final punto2 = puntos[(i + 1) % puntos.length]; // Para cerrar el polígono
 
-    area += (x2 - x1) * (2 + sin(y1) + sin(y2));
+      final double x1 = _toRadians(punto1.longitud);
+      final double y1 = _toRadians(punto1.latitud);
+      final double x2 = _toRadians(punto2.longitud);
+      final double y2 = _toRadians(punto2.latitud);
+
+      area += (x2 - x1) * (2 + sin(y1) + sin(y2));
+    }
+
+    area = area * earthRadius * earthRadius / 2.0;
+    return area
+        .abs(); // Devolvemos el valor absoluto del área en metros cuadrados
   }
 
-  area = area * earthRadius * earthRadius / 2.0;
-  return area.abs(); // Devolvemos el valor absoluto del área en metros cuadrados
-}
-
-double _toRadians(double degree) {
-  return degree * pi / 180;
-}
+  double _toRadians(double degree) {
+    return degree * pi / 180;
+  }
 
   void _focusOnArea(AreaCultivo area) {
     if (_googleMapController == null || area.puntoarea.isEmpty) return;
@@ -175,129 +350,105 @@ double _toRadians(double degree) {
   }
 
   void _showAreaInformationBottomSheet(AreaCultivo area) {
-  final double areaSize = _calculateArea(area.puntoarea); // Calcular el área
-  final double areaInHectares = areaSize / 10000; // Convertir metros cuadrados a hectáreas
+    final double areaSize = _calculateArea(area.puntoarea); // Calcular el área
+    final double areaInHectares =
+        areaSize / 10000; // Convertir metros cuadrados a hectáreas
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (BuildContext context, StateSetter setState) {
-          return Padding(
-            padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30),
-                      topRight: Radius.circular(30),
-                    ),
-                    child: BottomNavigationBar(
-                      items: const <BottomNavigationBarItem>[
-                        BottomNavigationBarItem(
-                          icon: Icon(Icons.terrain),
-                          label: 'Tierras',
-                        ),
-                        BottomNavigationBarItem(
-                          icon: Icon(Icons.grass),
-                          label: 'Cultivos',
-                        ),
-                        BottomNavigationBarItem(
-                          icon: Icon(Icons.nearby_error),
-                          label: 'Informacion',
-                        ),
-                      ],
-                      currentIndex: _selectedIndex,
-                      selectedItemColor: _isDarkMode
-                          ? Colors.blue
-                          : Theme.of(context)
-                              .bottomNavigationBarTheme
-                              .selectedItemColor,
-                      unselectedItemColor: _isDarkMode
-                          ? Colors.black
-                          : Theme.of(context)
-                              .bottomNavigationBarTheme
-                              .unselectedItemColor,
-                      onTap: (index) {
-                        setState(() {
-                          _selectedIndex = index;
-                        });
-                      },
-                      backgroundColor: Colors.transparent,
-                      elevation: 0,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Mostrar el nombre del área de cultivo
-                        Text(
-                          area.nombre,
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        SizedBox(height: 10),
+    _makePredictionsForArea(area.puntoarea.first.latitud,
+        area.puntoarea.first.longitud); // Iniciar las predicciones
 
-                        // Mostrar el cultivo asociado
-                        Text(
-                          'Cultivo: ${area.cultivo}',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                        SizedBox(height: 10),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter modalSetState) {
+            // Usar modalSetState para actualizar dentro del StatefulBuilder
+            return Padding(
+              padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Mostrar el nombre del área de cultivo
+                          Text(
+                            area.nombre,
+                            style: TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 10),
+                          // Mostrar el cultivo asociado
+                          Text(
+                            'Cultivo: ${area.cultivo}',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          SizedBox(height: 10),
 
-                        // Mostrar el color del área
-                        Row(
-                          children: [
-                            Text('Color del Área:'),
-                            SizedBox(width: 10),
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Color(int.parse(
-                                    '0xff${area.color.substring(1)}')), // Convertir el color hexadecimal
+                          // Mostrar el color del área
+                          Row(
+                            children: [
+                              Text('Color del Área:'),
+                              SizedBox(width: 10),
+                              Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(int.parse(
+                                      '0xff${area.color.substring(1)}')),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 20),
+                            ],
+                          ),
+                          SizedBox(height: 20),
 
-                        // Mostrar el área calculada
-                        Text(
-                          'Área: ${areaInHectares.toStringAsFixed(2)} hectáreas', // Mostramos el área en hectáreas
-                          style: TextStyle(fontSize: 16),
-                        ),
-                        SizedBox(height: 20),
+                          // Mostrar el área calculada
+                          Text(
+                            'Área: ${areaInHectares.toStringAsFixed(2)} hectáreas',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          SizedBox(height: 20),
 
-                        // Botón para cerrar el modal
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context); // Cerrar el BottomSheet
-                          },
-                          child: Text('Cerrar'),
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red),
-                        ),
-                      ],
+                          // Mostrar predicciones con spinners de carga
+                          _buildPredictionSection(
+                            title: 'Predicción de Inundación',
+                            isLoading: isLoadingFloodPrediction,
+                            result: floodPredictionResult.isNotEmpty
+                                ? (floodPredictionResult == "1"
+                                    ? 'Riesgo de Inundación'
+                                    : 'Sin riesgo de Inundación')
+                                : 'No se obtuvo ninguna predicción de inundación',
+                            modalSetState:
+                                modalSetState, // Pasar el modalSetState
+                          ),
+                          SizedBox(height: 20),
+                          _buildPredictionSection(
+                            title: 'Predicción de Sequía',
+                            isLoading: isLoadingDroughtPrediction,
+                            result: droughtPredictionResult.isNotEmpty
+                                ? 'Nivel $droughtPredictionResult'
+                                : 'No se obtuvo ninguna predicción de sequía',
+                            modalSetState:
+                                modalSetState, // Pasar el modalSetState
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
+            );
+          },
+        );
+      },
+    );
+  }
 
   LatLngBounds _getBoundsForArea(List<PuntoArea> puntos) {
     double southWestLat = puntos.first.latitud;
@@ -507,6 +658,43 @@ double _toRadians(double degree) {
       });
       _showRegisteredAreasModal(context, lineas);
     });
+  }
+
+  @override
+  Widget _buildPredictionSection({
+    required String title,
+    required bool isLoading,
+    required String result,
+    required StateSetter modalSetState, // Añadir modalSetState aquí
+  }) {
+    return Column(
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(height: 10),
+        isLoading
+            ? CircularProgressIndicator()
+            : Card(
+                elevation: 8,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                color: Colors.white.withOpacity(0.9),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    result,
+                    style: TextStyle(fontSize: 16, color: Colors.black54),
+                  ),
+                ),
+              ),
+      ],
+    );
   }
 
   @override
