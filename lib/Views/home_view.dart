@@ -468,6 +468,36 @@ class _HomeViewState extends ConsumerState<HomeView> {
         ));
       }
   }
+  void _focusOnArea(AreaCultivo area) {
+    if (_googleMapController == null || area.puntoarea.isEmpty) return;
+
+    // Obtener los límites del área seleccionada
+    LatLngBounds bounds = _getBoundsForArea(area.puntoarea);
+
+    // Mover la cámara a la posición del área seleccionada
+    _googleMapController.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, 50),  // Ajustar el mapa a los límites del área
+    );
+  }
+
+  LatLngBounds _getBoundsForArea(List<PuntoArea> puntos) {
+    double southWestLat = puntos.first.latitud;
+    double southWestLng = puntos.first.longitud;
+    double northEastLat = puntos.first.latitud;
+    double northEastLng = puntos.first.longitud;
+
+    for (var punto in puntos) {
+      if (punto.latitud < southWestLat) southWestLat = punto.latitud;
+      if (punto.longitud < southWestLng) southWestLng = punto.longitud;
+      if (punto.latitud > northEastLat) northEastLat = punto.latitud;
+      if (punto.longitud > northEastLng) northEastLng = punto.longitud;
+    }
+
+    return LatLngBounds(
+      southwest: LatLng(southWestLat, southWestLng),
+      northeast: LatLng(northEastLat, northEastLng),
+    );
+  }
 
   //para mostrar las areas de cultivo
   void _showRegisteredAreasModal(BuildContext context, List<AreaCultivo> areas) {
@@ -512,7 +542,8 @@ class _HomeViewState extends ConsumerState<HomeView> {
                       ),
                       trailing: Icon(Icons.arrow_forward),
                       onTap: () {
-                        // Aquí puedes agregar alguna acción cuando se selecciona una tierra
+                        _focusOnArea(area);  // Llamar a la función para enfocar la cámara en el área seleccionada
+                        Navigator.pop(context);
                       },
                     );
                   },
