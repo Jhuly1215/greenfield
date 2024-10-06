@@ -5,6 +5,7 @@ import 'package:flutter_gmaps/common/error_page.dart';
 import 'package:flutter_gmaps/common/loading_page.dart';
 import 'package:flutter_gmaps/models/user_model.dart';
 import 'package:flutter_gmaps/user_profile/controller/user_profile_controller.dart';
+import 'package:flutter_gmaps/user_profile/view/PrediccionesDF.dart';
 import 'package:flutter_gmaps/user_profile/view/edit_profile_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -93,6 +94,22 @@ class UserProfile extends ConsumerWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (context) => ListLineasTelefericoScreen()),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          const Divider(color: Colors.tealAccent),
+                          // Botón para ver posibles incidencias
+                          ListTile(
+                            leading: const Icon(Icons.warning, color: Color(0xFF071D26)),
+                            title: const Text(
+                              'Ver posibles incidencias',
+                              style: TextStyle(color: Color(0xFF071D26)), // Letras color 071D26
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => PrediccionesDF()), // Navegar a PrediccionesDF
                               );
                             },
                           ),
